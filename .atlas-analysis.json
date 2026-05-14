@@ -1,23 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "KERN",
+  "projectType": "saas",
+  "projectName": "KERN",
+  "projectDescription": "KERN is an intelligent fitness management system with a FastAPI backend and native Android app that auto-generates workout routines, tracks biometric data, and visualizes training progression.",
   "theme": "luma",
-  "colors": {
-    "primary": "#2563EB",
-    "light": "#DBEAFE",
-    "dark": "#1E3A8A"
-  },
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/jaimegayo/KERNDOCUMENTATION"
-    }
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/jaimegayo/KERNDOCUMENTATION"
-    }
-  },
+  "primaryColor": "#2563EB",
+  "lightColor": "#DBEAFE",
+  "darkColor": "#1E3A8A",
   "navigation": {
     "tabs": [
       {
@@ -96,5 +84,34 @@
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "Algorithmic routine generation based on fitness goals and movement patterns",
+    "Real-time biometric step counting via Android foreground service",
+    "Training volume progression tracking with historical load comparison",
+    "JWT-based stateless authentication with SHA-256 password hashing",
+    "Cloudinary CDN integration for profile avatar management",
+    "Async FastAPI backend deployed on Vercel with PostgreSQL (Neon)",
+    "MVVM architecture with Retrofit for the native Android client",
+    "Workout session history with per-exercise progression data"
+  ],
+  "publicApiSurface": [
+    "POST /register",
+    "POST /login",
+    "GET /users/me",
+    "PUT /users/avatar",
+    "PUT /users/update_name",
+    "GET /users/stats",
+    "GET /users/my-routines",
+    "GET /users/my-history",
+    "POST /users/complete-quiz",
+    "GET /exercises/gym",
+    "GET /exercises/home",
+    "GET /exercises/{exercise_id}",
+    "POST /routines/create",
+    "GET /routines/{routine_id}",
+    "PUT /routines/{routine_id}",
+    "DELETE /routines/{routine_id}",
+    "POST /workouts/finish"
+  ]
 }

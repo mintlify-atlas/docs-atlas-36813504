@@ -1,0 +1,432 @@
+---
+title: "KERN API data models reference"
+description: "All Pydantic request and response schemas and SQLAlchemy table models for the KERN API — field types, constraints, and default values for every model."
+---
+
+The KERN API uses two layers of data models: **Pydantic models** for request validation and response serialization (defined in `app.py` and `models.py`), and **SQLAlchemy models** for database persistence (defined in `models.py`).
+
+---
+
+## Pydantic request models
+
+These models validate inbound request bodies. Fields marked optional default to `None` unless a different default is specified.
+
+### UserCreate
+
+Used by `POST /register`.
+
+<ParamField body="username" type="string" required>
+  Unique display name. Stored in `users.username` (max 128 chars, unique index).
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  Email address. Stored in `users.email` (max 255 chars, unique index).
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  Plain-text password. Hashed with SHA-256 before storage. Never persisted in plain text.
+</ParamField>
+
+<ParamField body="full_name" type="string">
+  User's full name. Optional. Stored in `users.full_name` (max 100 chars).
+</ParamField>
+
+<ParamField body="phone" type="string">
+  Phone number. Optional. Stored in `users.phone` (max 50 chars).
+</ParamField>
+
+---
+
+### LoginRequest
+
+Used by `POST /login`.
+
+<ParamField body="email" type="string" required>
+  The registered email address.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  Plain-text password. The API hashes it and compares with the stored hash.
+</ParamField>
+
+---
+
+### QuizCompletion
+
+Used by `POST /users/complete-quiz`.
+
+<ParamField body="assigned_routine" type="string" required>
+  The training plan chosen by the user. One of: `"Full Body"`, `"PPL (Push Pull Leg)"`, `"Torso-Pierna"`.
+</ParamField>
+
+---
+
+### AvatarUpdate
+
+Used by `PUT /users/avatar`.
+
+<ParamField body="avatar_url" type="string" required>
+  Public URL of the new avatar image.
+</ParamField>
+
+---
+
+### UsernameUpdate
+
+Used by `PUT /users/update_name`.
+
+<ParamField body="username" type="string" required>
+  The desired new username. Must not be taken by another account.
+</ParamField>
+
+---
+
+### WorkoutSessionCreate
+
+Used by `POST /workouts/finish`.
+
+<ParamField body="routine_name" type="string" required>
+  Name of the routine that was performed.
+</ParamField>
+
+<ParamField body="duration_seconds" type="integer" required>
+  Session duration in seconds.
+</ParamField>
+
+<ParamField body="total_volume" type="number" required>
+  Total volume (kg) calculated as sum of kilos × reps for all sets.
+</ParamField>
+
+<ParamField body="steps" type="integer" default="0">
+  Steps recorded during the session by the Android StepCounterService.
+</ParamField>
+
+<ParamField body="data_json" type="object[]" required>
+  Full snapshot of all exercises and sets performed. Stored verbatim in the `workout_sessions.data_json` JSON column.
+</ParamField>
+
+---
+
+### RoutineCreate
+
+Used by `POST /routines/create` and `PUT /routines/{routine_id}`.
+
+<ParamField body="user_id" type="integer" required>
+  ID of the authenticated user who owns the routine.
+</ParamField>
+
+<ParamField body="nombre" type="string" required>
+  Routine display name.
+</ParamField>
+
+<ParamField body="ejercicios" type="object[]" required>
+  List of exercises to include. Each item uses the `RoutineExerciseCreate` schema.
+  <Expandable title="RoutineExerciseCreate properties">
+    <ParamField body="nombre" type="string" required>
+      Exercise name. Should match the exercise catalog exactly.
+    </ParamField>
+    <ParamField body="series" type="object[]" required>
+      List of sets. Each item uses the `SerieCreate` schema.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+---
+
+### SerieCreate
+
+Nested within `RoutineCreate.ejercicios[].series`.
+
+<ParamField body="numSerie" type="integer" required>
+  Set number, starting at 1.
+</ParamField>
+
+<ParamField body="kilos" type="number" required>
+  Weight in kilograms. Use `0` as the initial placeholder.
+</ParamField>
+
+<ParamField body="reps" type="integer" required>
+  Target or actual repetitions.
+</ParamField>
+
+---
+
+## Pydantic response models
+
+These models shape the JSON returned by the API.
+
+### LoginResponse
+
+Returned by `POST /register`, `POST /login`, and `PUT /users/update_name`.
+
+<ResponseField name="accessToken" type="string" required>
+  Signed JWT token (HS256). Valid for 30 minutes. Field name is `accessToken` (camelCase) due to a Pydantic `Field(alias="accessToken")` on the underlying `access_token` attribute.
+</ResponseField>
+
+<ResponseField name="token_type" type="string" required>
+  Always `"bearer"`.
+</ResponseField>
+
+<ResponseField name="user" type="object" required>
+  The authenticated user's data. See `UserData` below.
+</ResponseField>
+
+---
+
+### UserData
+
+Returned as the `user` field in `LoginResponse` and directly by all `/users/me`, `/users/avatar`, and `/users/complete-quiz` endpoints.
+
+<ResponseField name="id" type="integer">
+  Auto-incremented user ID.
+</ResponseField>
+
+<ResponseField name="username" type="string" required>
+  Display name.
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  Email address.
+</ResponseField>
+
+<ResponseField name="full_name" type="string">
+  Full name. `null` if not set.
+</ResponseField>
+
+<ResponseField name="phone" type="string">
+  Phone number. `null` if not set.
+</ResponseField>
+
+<ResponseField name="avatar_url" type="string">
+  Avatar image URL. `null` if not set.
+</ResponseField>
+
+<ResponseField name="role" type="string" default="user">
+  Account role.
+</ResponseField>
+
+<ResponseField name="bio" type="string">
+  Short biography. `null` if not set.
+</ResponseField>
+
+<ResponseField name="has_completed_quiz" type="boolean" default="false">
+  Whether the onboarding quiz has been completed.
+</ResponseField>
+
+<ResponseField name="assigned_routine" type="string">
+  Routine type selected during the quiz. `null` until the quiz is completed.
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  ISO 8601 account creation timestamp.
+</ResponseField>
+
+<ResponseField name="disabled" type="boolean">
+  Whether the account is disabled.
+</ResponseField>
+
+---
+
+### UserStats
+
+Returned by `GET /users/stats`.
+
+<ResponseField name="total_workouts" type="integer" required>
+  Total number of completed workout sessions.
+</ResponseField>
+
+<ResponseField name="total_steps" type="integer" required>
+  Sum of all steps across all sessions.
+</ResponseField>
+
+<ResponseField name="training_days" type="string[]" required>
+  Unique calendar dates (`"YYYY-MM-DD"`) with at least one recorded session.
+</ResponseField>
+
+---
+
+### Exercise
+
+Returned by all `/exercises/*` endpoints. Defined in `app.py` (not `models.py`) as a Pydantic model that validates data loaded from JSON files.
+
+<ResponseField name="id" type="integer" required>
+  Unique exercise ID within its JSON catalog file.
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Exercise name. This is the canonical key used to match exercises between the routine and workout session data.
+</ResponseField>
+
+<ResponseField name="primary_muscle" type="string" required>
+  Primary muscle group (e.g., `"Pecho"`, `"Espalda"`, `"Cuádriceps"`).
+</ResponseField>
+
+<ResponseField name="movement_pattern" type="string" required>
+  Movement category (e.g., `"Empuje horizontal"`, `"Tracción vertical"`). Used by the auto-routine generator.
+</ResponseField>
+
+<ResponseField name="equipment" type="string" required>
+  Equipment required.
+</ResponseField>
+
+<ResponseField name="instructions" type="string" required>
+  Full execution instructions.
+</ResponseField>
+
+<ResponseField name="pro_tips" type="string[]" required>
+  Coaching cues.
+</ResponseField>
+
+<ResponseField name="common_mistakes" type="string[]" required>
+  Common errors to avoid.
+</ResponseField>
+
+<ResponseField name="video_url" type="string">
+  Optional demonstration video URL. `null` if unavailable.
+</ResponseField>
+
+---
+
+## SQLAlchemy database models
+
+These are the ORM classes in `models.py` that map to database tables. The database is managed by SQLAlchemy with async support via `AsyncSession`.
+
+### User — table: `users`
+
+<ResponseField name="id" type="Integer" required>
+  Primary key. Auto-incremented.
+</ResponseField>
+
+<ResponseField name="username" type="String(128)" required>
+  Unique, indexed. The JWT `sub` claim is set to this value.
+</ResponseField>
+
+<ResponseField name="email" type="String(255)" required>
+  Unique, indexed.
+</ResponseField>
+
+<ResponseField name="hashed_password" type="String(256)" required>
+  SHA-256 hex digest. Never returned by any API endpoint.
+</ResponseField>
+
+<ResponseField name="full_name" type="String(100)">
+  Nullable.
+</ResponseField>
+
+<ResponseField name="phone" type="String(50)">
+  Nullable.
+</ResponseField>
+
+<ResponseField name="avatar_url" type="String(255)">
+  Nullable.
+</ResponseField>
+
+<ResponseField name="role" type="String(50)" default="user">
+  Account role.
+</ResponseField>
+
+<ResponseField name="bio" type="String(500)">
+  Nullable.
+</ResponseField>
+
+<ResponseField name="has_completed_quiz" type="Boolean" default="false">
+  Set to `true` by `POST /users/complete-quiz`.
+</ResponseField>
+
+<ResponseField name="assigned_routine" type="String(100)">
+  Nullable. Set by `POST /users/complete-quiz`.
+</ResponseField>
+
+<ResponseField name="disabled" type="Boolean" default="false">
+  When `true`, all authenticated requests return `400 Usuario inactivo`.
+</ResponseField>
+
+<ResponseField name="created_at" type="DateTime(timezone=True)">
+  Server-side default via `func.now()`.
+</ResponseField>
+
+---
+
+### Routine — table: `routines`
+
+<ResponseField name="id" type="Integer" required>
+  Primary key. Auto-incremented.
+</ResponseField>
+
+<ResponseField name="user_id" type="Integer" required>
+  Foreign key → `users.id`. Not nullable.
+</ResponseField>
+
+<ResponseField name="name" type="String(255)" required>
+  Routine display name. Not nullable.
+</ResponseField>
+
+<ResponseField name="created_at" type="DateTime(timezone=True)">
+  Server-side default via `func.now()`.
+</ResponseField>
+
+Relationships:
+- `owner` → `User` (many-to-one)
+- `exercises` → `RoutineExercise[]` (one-to-many, `cascade="all, delete-orphan"`)
+
+---
+
+### RoutineExercise — table: `routine_exercises`
+
+<ResponseField name="id" type="Integer" required>
+  Primary key. Auto-incremented.
+</ResponseField>
+
+<ResponseField name="routine_id" type="Integer" required>
+  Foreign key → `routines.id`.
+</ResponseField>
+
+<ResponseField name="exercise_name" type="String(255)" required>
+  Exercise name as a denormalized string. Must match the catalog `name` for instruction lookups.
+</ResponseField>
+
+<ResponseField name="series" type="JSON" required>
+  Array of set objects (`[{numSerie, kilos, reps}]`) stored as a JSON column. Not nullable.
+</ResponseField>
+
+Relationships:
+- `routine` → `Routine` (many-to-one)
+
+---
+
+### WorkoutSession — table: `workout_sessions`
+
+<ResponseField name="id" type="Integer" required>
+  Primary key. Auto-incremented.
+</ResponseField>
+
+<ResponseField name="user_id" type="Integer" required>
+  Foreign key → `users.id`. Not nullable.
+</ResponseField>
+
+<ResponseField name="routine_name" type="String(255)" required>
+  Name of the routine performed. Used for case-insensitive matching in the progression query.
+</ResponseField>
+
+<ResponseField name="duration_seconds" type="Integer" required>
+  Session duration. Not nullable.
+</ResponseField>
+
+<ResponseField name="total_volume" type="Float" default="0.0">
+  Total training volume in kg.
+</ResponseField>
+
+<ResponseField name="steps" type="Integer" default="0">
+  Steps recorded during the session.
+</ResponseField>
+
+<ResponseField name="data_json" type="JSON" required>
+  Full exercise + series snapshot. Read back by `GET /routines/{id}` to populate progression fields.
+</ResponseField>
+
+<ResponseField name="created_at" type="DateTime(timezone=True)">
+  Server-side default via `func.now()`. Used for ordering history and deduplicating `training_days`.
+</ResponseField>
+
+Relationships:
+- `owner` → `User` (many-to-one)

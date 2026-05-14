@@ -1,0 +1,58 @@
+---
+title: "KERN: Intelligent Fitness Management"
+description: "KERN eliminates gym guesswork with algorithmic routine generation, biometric step tracking, and volume progression — all synced to the cloud."
+---
+
+Most gym-goers have no structured record of their progress. Without knowing what weight they lifted last week or how their volume has changed over time, they plateau. KERN was built to solve exactly this: a fitness management system that removes the friction of "not knowing what to do" by automatically generating science-based routines, tracking biometric activity during workouts, and persisting every session to the cloud so no data is ever lost.
+
+## What KERN does
+
+KERN connects an Android client to a FastAPI backend, giving every user a personalized training plan from their first login. After completing a short quiz, the system maps your goals to a structured routine, pre-populates each exercise with historical load suggestions from your previous sessions, and records your step count via the phone's accelerometer — all in one coherent flow.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="bolt" href="/quickstart">
+    Register, complete the quiz, and finish your first workout in minutes.
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture">
+    Understand the FastAPI backend, Android MVVM layers, and database schema.
+  </Card>
+  <Card title="Registration guide" icon="user-plus" href="/guide/registration">
+    Step-by-step walkthrough of account creation and onboarding.
+  </Card>
+  <Card title="API overview" icon="code" href="/api/overview">
+    Explore all REST endpoints, request shapes, and authentication flow.
+  </Card>
+</CardGroup>
+
+## Key capabilities
+
+**Algorithmic routine generation** — The `/users/complete-quiz` endpoint maps your selected routine type to `ROUTINE_CONFIGS`, a lookup table of muscle groups and movement patterns. It then queries the exercise catalogue (`exercises_gym_id.json`) to select matching exercises and writes them as `RoutineExercise` rows — no manual programming required.
+
+**Historical load suggestions** — When you open a workout, `GET /routines/{id}` returns each series with `prev_kilos`, `prev_reps`, and an `anterior` display string pulled from your most recent `WorkoutSession`. These pre-fill the weight and rep fields in the Android UI, prompting you to beat your previous performance.
+
+**Biometric step tracking** — A foreground Android service (`StepCounterService`) uses the `TYPE_STEP_COUNTER` sensor to count steps throughout the session. An offset stored in `SharedPreferences` keeps the count correct even if the app is closed mid-session. Steps are submitted alongside volume data when the workout finishes.
+
+**Volume progression analytics** — Total volume (kilograms × repetitions across all sets) is calculated in real time inside `WorkoutActiveFragment` and stored in `WorkoutSession.total_volume`. The dashboard renders this as a time-series chart using MPAndroidChart.
+
+## Supported routine types
+
+| Type | Structure |
+|---|---|
+| **Full Body** | Horizontal push, vertical pull, squat, vertical push, hip hinge — 5 movement patterns per session |
+| **PPL (Push Pull Leg)** | Push day (chest + shoulders), pull day (back + biceps), leg day (quads + hamstrings) — 8 movement patterns across 3 days |
+| **Torso-Pierna** | Upper body (push + pull) alternated with lower body (squat + hip hinge) — 6 movement patterns across 2 days |
+
+## Tech stack
+
+| Layer | Technology | Role |
+|---|---|---|
+| **Backend** | FastAPI (Python) | Async REST API with `AsyncSession` and Pydantic validation |
+| **Database** | PostgreSQL via Neon | Managed relational storage for users, routines, and sessions |
+| **Frontend** | Android (Java) | Native MVVM app with Retrofit 2 networking and LiveData |
+| **Auth** | JWT (HS256) + SHA-256 | Stateless token auth; passwords hashed before storage |
+| **Media** | Cloudinary | CDN for avatar upload and delivery via `PUT /users/avatar` |
+| **Hosting** | Vercel | Serverless deployment of the FastAPI backend |
+
+<Note>
+  KERN requires an active internet connection. All workout data is persisted exclusively to the Neon PostgreSQL instance — offline mode is not currently supported.
+</Note>

@@ -1,0 +1,128 @@
+---
+title: "How KERN generates your workout routine"
+description: "Learn how KERN's algorithm maps routine types to muscle groups and movement patterns to automatically build a balanced, science-backed workout plan."
+---
+
+When you complete the onboarding quiz, KERN does not randomly assign exercises — it runs a deterministic selection algorithm that maps your chosen routine type to specific muscle groups and movement patterns, then picks exercises that match both dimensions from the gym exercise catalog.
+
+## Routine types
+
+KERN supports three routine structures. Each is defined in the `ROUTINE_CONFIGS` dictionary inside `app.py` and maps to a list of `{muscle, pattern}` targets.
+
+```python
+ROUTINE_CONFIGS = {
+    "Full Body": [
+        {"muscle": "Pecho",           "pattern": "Empuje horizontal"},
+        {"muscle": "Espalda",         "pattern": "Tracción vertical"},
+        {"muscle": "Cuádriceps",      "pattern": "Sentadilla"},
+        {"muscle": "Hombros",         "pattern": "Empuje vertical"},
+        {"muscle": "Isquiotibiales",  "pattern": "Bisagra de cadera"}
+    ],
+    "PPL (Push Pull Leg)": [
+        # Push
+        {"muscle": "Pecho",           "pattern": "Empuje horizontal"},
+        {"muscle": "Pecho superior",  "pattern": "Empuje horizontal"},
+        {"muscle": "Hombros",         "pattern": "Empuje vertical"},
+        # Pull
+        {"muscle": "Espalda",         "pattern": "Tracción vertical"},
+        {"muscle": "Espalda media",   "pattern": "Tracción horizontal"},
+        {"muscle": "Bíceps",          "pattern": "Aislamiento"},
+        # Leg
+        {"muscle": "Cuádriceps",      "pattern": "Empuje de piernas"},
+        {"muscle": "Isquiotibiales",  "pattern": "Bisagra de cadera"}
+    ],
+    "Torso-Pierna": [
+        {"muscle": "Pecho",           "pattern": "Empuje horizontal"},
+        {"muscle": "Pecho superior",  "pattern": "Empuje horizontal"},
+        {"muscle": "Espalda",         "pattern": "Tracción vertical"},
+        {"muscle": "Espalda media",   "pattern": "Tracción horizontal"},
+        {"muscle": "Cuádriceps",      "pattern": "Sentadilla"},
+        {"muscle": "Isquiotibiales",  "pattern": "Bisagra de cadera"}
+    ]
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Full Body — 5 exercises">
+    Targets one exercise from each of five fundamental patterns in a single session: horizontal push (chest), vertical pull (back), squat (quads), vertical push (shoulders), and hip hinge (hamstrings). Designed for training 3 days per week.
+  </Accordion>
+
+  <Accordion title="PPL (Push Pull Leg) — 8 exercises">
+    Splits the week into push, pull, and leg days. The push slot covers chest (flat and incline) and shoulders. The pull slot covers vertical and horizontal back plus biceps isolation. The leg slot covers quad-dominant and hamstring-dominant patterns. Designed for 6-day training frequency.
+  </Accordion>
+
+  <Accordion title="Torso-Pierna — 6 exercises">
+    An upper/lower split that alternates torso (chest, upper chest, back, mid-back) and leg (quad squat, hamstring hinge) sessions. Suitable for 4-day training frequency.
+  </Accordion>
+</AccordionGroup>
+
+## How exercise selection works
+
+The `generate_routine_exercises` function in `app.py` iterates over each `{muscle, pattern}` target in the chosen config and selects one exercise per slot.
+
+<Steps>
+  <Step title="Load the exercise catalog">
+    At startup, KERN reads `exercises_gym_id.json` into memory. Every entry has a `primary_muscle` and a `movement_pattern` field.
+  </Step>
+
+  <Step title="Match by muscle and pattern">
+    For each config slot, the algorithm looks for exercises where both `primary_muscle` and `movement_pattern` match the target (case-insensitive).
+
+    ```python
+    candidates = [
+        ex for ex in all_exercises
+        if ex["primary_muscle"].lower() == target_muscle
+        and ex["movement_pattern"].lower() == target_pattern
+    ]
+    ```
+  </Step>
+
+  <Step title="Fallback to muscle-only">
+    If no exercise matches both criteria, the algorithm widens the search to muscle alone. This ensures every slot is always filled.
+
+    ```python
+    if not candidates:
+        candidates = [
+            ex for ex in all_exercises
+            if ex["primary_muscle"].lower() == target_muscle
+        ]
+    ```
+  </Step>
+
+  <Step title="Random selection">
+    One exercise is chosen at random from the candidate list using `random.choice()`. This introduces variety across users with the same routine type.
+  </Step>
+
+  <Step title="Default series assigned">
+    Each selected exercise is initialized with three sets at 0 kg and 10 reps. These are the starting values the user will fill in during their first session.
+
+    ```python
+    {
+        "nombre": chosen["name"],
+        "series": [
+            {"numSerie": 1, "kilos": 0, "reps": 10},
+            {"numSerie": 2, "kilos": 0, "reps": 10},
+            {"numSerie": 3, "kilos": 0, "reps": 10}
+        ]
+    }
+    ```
+  </Step>
+</Steps>
+
+## Triggering generation
+
+Routine generation is triggered automatically when the user completes the quiz. The `POST /users/complete-quiz` endpoint receives the selected routine name, validates it against `ROUTINE_CONFIGS`, runs `generate_routine_exercises`, and persists the result as a new `Routine` with linked `RoutineExercise` rows.
+
+```http
+POST /users/complete-quiz
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "assigned_routine": "Full Body"
+}
+```
+
+<Note>
+  If the `assigned_routine` value does not match any key in `ROUTINE_CONFIGS`, no exercises are generated. Accepted values are `"Full Body"`, `"PPL (Push Pull Leg)"`, and `"Torso-Pierna"` — exact string match required.
+</Note>

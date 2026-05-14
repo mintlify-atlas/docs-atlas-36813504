@@ -1,0 +1,440 @@
+---
+title: "User endpoints: profile, stats, and routines"
+description: "GET /users/me, avatar update, username update, quiz completion, training stats, routine list, and workout history endpoints. All require Bearer auth."
+---
+
+All user endpoints require a valid JWT Bearer token in the `Authorization` header. See [Authentication](/api/authentication) for how to obtain a token.
+
+---
+
+## GET /users/me
+
+Returns the full profile of the currently authenticated user.
+
+**Auth required:** Yes
+
+### Response — 200
+
+<ResponseField name="id" type="integer">
+  Auto-incremented user ID.
+</ResponseField>
+
+<ResponseField name="username" type="string" required>
+  The user's display name.
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  Email address on file.
+</ResponseField>
+
+<ResponseField name="full_name" type="string">
+  Full name. `null` if not set.
+</ResponseField>
+
+<ResponseField name="phone" type="string">
+  Phone number. `null` if not set.
+</ResponseField>
+
+<ResponseField name="avatar_url" type="string">
+  URL of the avatar image. `null` if not set.
+</ResponseField>
+
+<ResponseField name="role" type="string">
+  Account role. Default: `"user"`.
+</ResponseField>
+
+<ResponseField name="bio" type="string">
+  Short biography. `null` if not set.
+</ResponseField>
+
+<ResponseField name="has_completed_quiz" type="boolean">
+  Whether the onboarding questionnaire has been completed.
+</ResponseField>
+
+<ResponseField name="assigned_routine" type="string">
+  The routine type selected during the quiz: `"Full Body"`, `"PPL (Push Pull Leg)"`, or `"Torso-Pierna"`. `null` until the quiz is completed.
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  ISO 8601 account creation timestamp.
+</ResponseField>
+
+<ResponseField name="disabled" type="boolean">
+  Whether the account is disabled.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash curl
+curl --request GET \
+  --url https://kern-api.vercel.app/users/me \
+  --header "Authorization: Bearer <accessToken>"
+```
+
+```json Response
+{
+  "id": 42,
+  "username": "jaime",
+  "email": "jaime@example.com",
+  "full_name": "Jaime Gayo",
+  "phone": null,
+  "avatar_url": "https://res.cloudinary.com/demo/image/upload/sample.jpg",
+  "role": "user",
+  "bio": null,
+  "has_completed_quiz": true,
+  "assigned_routine": "Full Body",
+  "created_at": "2026-05-14T10:00:00+00:00",
+  "disabled": false
+}
+```
+
+</CodeGroup>
+
+---
+
+## POST /users/complete-quiz
+
+Marks the onboarding questionnaire as complete, sets the user's assigned routine type, and automatically generates an initial routine with exercises selected from the gym catalog.
+
+**Auth required:** Yes
+
+### Request body
+
+<ParamField body="assigned_routine" type="string" required>
+  The training plan chosen by the user. Must be one of:
+  - `"Full Body"`
+  - `"PPL (Push Pull Leg)"`
+  - `"Torso-Pierna"`
+</ParamField>
+
+### Response — 200
+
+Returns the updated `UserData` object with `has_completed_quiz` set to `true` and `assigned_routine` populated.
+
+### Example
+
+<CodeGroup>
+
+```bash curl
+curl --request POST \
+  --url https://kern-api.vercel.app/users/complete-quiz \
+  --header "Authorization: Bearer <accessToken>" \
+  --header "Content-Type: application/json" \
+  --data '{"assigned_routine": "Full Body"}'
+```
+
+```json Response
+{
+  "id": 42,
+  "username": "jaime",
+  "email": "jaime@example.com",
+  "full_name": "Jaime Gayo",
+  "phone": null,
+  "avatar_url": null,
+  "role": "user",
+  "bio": null,
+  "has_completed_quiz": true,
+  "assigned_routine": "Full Body",
+  "created_at": "2026-05-14T10:00:00+00:00",
+  "disabled": false
+}
+```
+
+</CodeGroup>
+
+---
+
+## PUT /users/avatar
+
+Updates the avatar image URL for the authenticated user.
+
+**Auth required:** Yes
+
+### Request body
+
+<ParamField body="avatar_url" type="string" required>
+  Public URL of the new avatar image. Typically a Cloudinary URL obtained after uploading from the Android client.
+</ParamField>
+
+### Response — 200
+
+Returns the updated `UserData` object with the new `avatar_url`.
+
+### Example
+
+<CodeGroup>
+
+```bash curl
+curl --request PUT \
+  --url https://kern-api.vercel.app/users/avatar \
+  --header "Authorization: Bearer <accessToken>" \
+  --header "Content-Type: application/json" \
+  --data '{"avatar_url": "https://res.cloudinary.com/demo/image/upload/sample.jpg"}'
+```
+
+```json Response
+{
+  "id": 42,
+  "username": "jaime",
+  "avatar_url": "https://res.cloudinary.com/demo/image/upload/sample.jpg",
+  "has_completed_quiz": true,
+  "assigned_routine": "Full Body"
+}
+```
+
+</CodeGroup>
+
+---
+
+## PUT /users/update_name
+
+Updates the username of the authenticated user. Because the username is embedded in the JWT payload (`sub` claim), this endpoint issues a **new token** and returns a full `LoginResponse`.
+
+**Auth required:** Yes
+
+<Warning>
+  Replace your stored token with the `accessToken` from the response immediately. Continuing to use the old token will result in 401 errors because the `sub` claim no longer matches the updated username.
+</Warning>
+
+### Request body
+
+<ParamField body="username" type="string" required>
+  The new username. Must not already be in use by another account.
+</ParamField>
+
+### Response — 200
+
+Returns a full `LoginResponse` (same shape as login/register) with a fresh JWT token and updated user data.
+
+### Errors
+
+| Status | `detail` | Cause |
+|---|---|---|
+| `400` | `"El nombre de usuario ya está en uso"` | Another account already uses this username |
+
+### Example
+
+<CodeGroup>
+
+```bash curl
+curl --request PUT \
+  --url https://kern-api.vercel.app/users/update_name \
+  --header "Authorization: Bearer <accessToken>" \
+  --header "Content-Type: application/json" \
+  --data '{"username": "jaime_new"}'
+```
+
+```json Response
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "user": {
+    "id": 42,
+    "username": "jaime_new",
+    "email": "jaime@example.com",
+    "has_completed_quiz": true,
+    "assigned_routine": "Full Body"
+  }
+}
+```
+
+</CodeGroup>
+
+---
+
+## GET /users/stats
+
+Returns aggregate training statistics for the authenticated user, calculated from all saved workout sessions.
+
+**Auth required:** Yes
+
+### Response — 200
+
+<ResponseField name="total_workouts" type="integer" required>
+  Total number of completed workout sessions recorded.
+</ResponseField>
+
+<ResponseField name="total_steps" type="integer" required>
+  Sum of all steps recorded across every workout session.
+</ResponseField>
+
+<ResponseField name="training_days" type="string[]" required>
+  Sorted list of unique calendar dates (`"YYYY-MM-DD"`) on which at least one workout was completed.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash curl
+curl --request GET \
+  --url https://kern-api.vercel.app/users/stats \
+  --header "Authorization: Bearer <accessToken>"
+```
+
+```json Response
+{
+  "total_workouts": 42,
+  "total_steps": 15000,
+  "training_days": [
+    "2026-04-28",
+    "2026-05-01",
+    "2026-05-05",
+    "2026-05-10"
+  ]
+}
+```
+
+</CodeGroup>
+
+---
+
+## GET /users/my-routines
+
+Returns all workout routines belonging to the authenticated user, each with its full list of exercises and their stored series data.
+
+**Auth required:** Yes
+
+### Response — 200
+
+Returns an array of routine objects.
+
+<ResponseField name="id" type="integer">
+  Routine ID.
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Routine display name.
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  ISO 8601 creation timestamp.
+</ResponseField>
+
+<ResponseField name="exercises" type="object[]">
+  <Expandable title="exercise properties">
+    <ResponseField name="id" type="integer">
+      RoutineExercise row ID.
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Exercise name as stored in the routine.
+    </ResponseField>
+    <ResponseField name="series" type="object[]">
+      Array of series objects, each with `numSerie`, `kilos`, and `reps`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash curl
+curl --request GET \
+  --url https://kern-api.vercel.app/users/my-routines \
+  --header "Authorization: Bearer <accessToken>"
+```
+
+```json Response
+[
+  {
+    "id": 7,
+    "name": "Mi Rutina Full Body Inicial",
+    "created_at": "2026-05-14T10:00:00+00:00",
+    "exercises": [
+      {
+        "id": 21,
+        "name": "Press de Banca",
+        "series": [
+          {"numSerie": 1, "kilos": 0, "reps": 10},
+          {"numSerie": 2, "kilos": 0, "reps": 10},
+          {"numSerie": 3, "kilos": 0, "reps": 10}
+        ]
+      }
+    ]
+  }
+]
+```
+
+</CodeGroup>
+
+---
+
+## GET /users/my-history
+
+Returns all completed workout sessions for the authenticated user, ordered from most recent to oldest.
+
+**Auth required:** Yes
+
+### Response — 200
+
+Returns an array of `WorkoutSession` objects directly from the database.
+
+<ResponseField name="id" type="integer">
+  Session ID.
+</ResponseField>
+
+<ResponseField name="user_id" type="integer">
+  The user this session belongs to.
+</ResponseField>
+
+<ResponseField name="routine_name" type="string">
+  Name of the routine that was performed.
+</ResponseField>
+
+<ResponseField name="duration_seconds" type="integer">
+  Total session duration in seconds.
+</ResponseField>
+
+<ResponseField name="total_volume" type="number">
+  Sum of (kilos × reps) for all sets completed in the session.
+</ResponseField>
+
+<ResponseField name="steps" type="integer">
+  Steps recorded by the Android StepCounterService during the session.
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  ISO 8601 timestamp when the session was saved.
+</ResponseField>
+
+<ResponseField name="data_json" type="object[]">
+  Full snapshot of all exercises and series performed. Same shape as the `POST /workouts/finish` request body `data_json`.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash curl
+curl --request GET \
+  --url https://kern-api.vercel.app/users/my-history \
+  --header "Authorization: Bearer <accessToken>"
+```
+
+```json Response
+[
+  {
+    "id": 15,
+    "user_id": 42,
+    "routine_name": "Mi Rutina Full Body Inicial",
+    "duration_seconds": 3600,
+    "total_volume": 5400.0,
+    "steps": 850,
+    "created_at": "2026-05-14T11:00:00+00:00",
+    "data_json": [
+      {
+        "name": "Press de Banca",
+        "series": [
+          {"numSerie": 1, "kilos": 60.0, "reps": 10},
+          {"numSerie": 2, "kilos": 62.5, "reps": 8}
+        ]
+      }
+    ]
+  }
+]
+```
+
+</CodeGroup>

@@ -1,0 +1,107 @@
+---
+title: "Tracking sets, reps, and training volume"
+description: "Understand how KERN records active workout sessions, calculates training volume in real time, and stores historical data for future progression."
+---
+
+Every time you finish a training session in KERN, the app compiles a complete snapshot of your performance — every exercise, every set, every weight — and sends it to the API. That record is what powers the progression hints you see the next time you open the same routine.
+
+## The WorkoutSession model
+
+Each completed session is persisted as a `WorkoutSession` row in the database. The table schema is defined in `models.py`:
+
+<CardGroup cols={2}>
+  <Card title="Session identity" icon="id-card">
+    `id` (primary key), `user_id` (foreign key to users), `routine_name` (string copy of the routine name at the time of the session), `created_at` (server timestamp).
+  </Card>
+  <Card title="Performance data" icon="chart-line">
+    `duration_seconds` (integer), `total_volume` (float — sum of kg × reps), `steps` (integer — from the step counter service), `data_json` (JSON — full exercise and series snapshot).
+  </Card>
+</CardGroup>
+
+```python
+class WorkoutSession(Base):
+    __tablename__ = "workout_sessions"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    user_id         = Column(Integer, ForeignKey("users.id"), nullable=False)
+    routine_name    = Column(String(255), nullable=False)
+    duration_seconds= Column(Integer, nullable=False)
+    total_volume    = Column(Float, default=0.0)
+    steps           = Column(Integer, default=0)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+    data_json       = Column(JSON, nullable=False)
+```
+
+## The active workout screen
+
+When you open a routine, KERN calls `GET /routines/{routine_id}`. The response includes historical data from your last session alongside the current exercise structure.
+
+Each series object in the response carries four fields relevant to progression:
+
+| Field | Type | Description |
+|---|---|---|
+| `anterior` | string | Human-readable hint, e.g. `"60kg x 10"`. Displayed in the UI. |
+| `prev_kilos` | float | Numeric weight from the last session. Pre-fills the input field. |
+| `prev_reps` | int | Numeric rep count from the last session. Pre-fills the input field. |
+| `kilos` / `reps` | int | Always sent as `0` — you enter new values during the session. |
+
+<Tip>
+  The `anterior` hint gives you a quick reference target without forcing you to match it. Enter whatever weight and reps you completed — KERN records what actually happened, not a goal.
+</Tip>
+
+## Volume calculation
+
+Total volume is the sum of `kilos × reps` for every completed series in the session. The Android app (`WorkoutActiveFragment`) calculates this in real time via the `ActiveExerciseAdapter.OnVolumenChangeListener` callback and updates the header counter as you mark sets done.
+
+The final value is included in the `POST /workouts/finish` payload as `total_volume`.
+
+## Finishing a session
+
+When you tap "Finish workout", the app calls `POST /workouts/finish` with the `WorkoutSessionCreate` schema:
+
+```json
+{
+  "routine_name": "Mi Rutina Full Body Inicial",
+  "duration_seconds": 3420,
+  "total_volume": 4850.0,
+  "steps": 312,
+  "data_json": [
+    {
+      "name": "Press de banca",
+      "series": [
+        { "numSerie": 1, "kilos": 60, "reps": 10 },
+        { "numSerie": 2, "kilos": 60, "reps": 9 },
+        { "numSerie": 3, "kilos": 55, "reps": 10 }
+      ]
+    },
+    {
+      "name": "Dominadas",
+      "series": [
+        { "numSerie": 1, "kilos": 0, "reps": 8 },
+        { "numSerie": 2, "kilos": 0, "reps": 7 }
+      ]
+    }
+  ]
+}
+```
+
+<Note>
+  Only series where `isDone = true` are included in `data_json`. Empty exercises (no completed series) are filtered out on the client before the request is sent.
+</Note>
+
+## Rest timer
+
+After you mark a set as complete, the rest timer activates automatically. It is managed by `RoutineViewModel` and displayed via a dialog in `WorkoutActiveFragment`. You can adjust the duration in 15-second increments using the `+15` and `-15` buttons, or reset it entirely. An audio tone plays when time runs out.
+
+## Historical matching logic
+
+When loading a routine, KERN matches series from your last session to the current routine's series using two strategies:
+
+<Steps>
+  <Step title="Match by numSerie (primary)">
+    The API builds a map of `numSerie → series data` from the last session. For each current series, it looks up the same `numSerie` value in that map. This is the preferred path because series numbers survive routine edits.
+  </Step>
+  <Step title="Match by index (fallback)">
+    If no `numSerie` match is found — for example, with sessions recorded before the field was introduced — the API falls back to positional matching using the series' array index.
+  </Step>
+</Steps>

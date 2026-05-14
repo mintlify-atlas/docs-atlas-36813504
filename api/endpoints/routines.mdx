@@ -1,0 +1,351 @@
+---
+title: "Routine endpoints: create, read, update, delete"
+description: "KERN routine endpoints — create, read with historical progression data, update, and permanently delete workout routines. All require Bearer auth."
+---
+
+All routine endpoints require a valid JWT Bearer token. The API enforces ownership — users can only read, update, or delete their own routines.
+
+---
+
+## POST /routines/create
+
+Creates a new routine with its exercises and series in a single atomic transaction.
+
+**Auth required:** Yes
+
+### Request body
+
+<ParamField body="user_id" type="integer" required>
+  The ID of the authenticated user. Must match the token's owner.
+</ParamField>
+
+<ParamField body="nombre" type="string" required>
+  Display name for the routine (e.g., `"Día A — Empuje"`).
+</ParamField>
+
+<ParamField body="ejercicios" type="object[]" required>
+  Array of exercises to include in the routine.
+  <Expandable title="ejercicio properties">
+    <ParamField body="nombre" type="string" required>
+      Exercise name. Must match the name in the exercise catalog so that instructions and tips can be retrieved later.
+    </ParamField>
+    <ParamField body="series" type="object[]" required>
+      Array of set definitions.
+      <Expandable title="serie properties">
+        <ParamField body="numSerie" type="integer" required>
+          Set number, starting at 1.
+        </ParamField>
+        <ParamField body="kilos" type="number" required>
+          Weight in kilograms. Use `0` as the initial placeholder before the user has trained.
+        </ParamField>
+        <ParamField body="reps" type="integer" required>
+          Target repetitions.
+        </ParamField>
+      </Expandable>
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Response — 200
+
+<ResponseField name="status" type="string" required>
+  Always `"success"` on a successful creation.
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  Human-readable confirmation message.
+</ResponseField>
+
+<ResponseField name="routine_id" type="integer" required>
+  The auto-incremented ID of the newly created routine. Store this to retrieve or update the routine later.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash curl
+curl --request POST \
+  --url https://kern-api.vercel.app/routines/create \
+  --header "Authorization: Bearer <accessToken>" \
+  --header "Content-Type: application/json" \
+  --data '{
+    "user_id": 42,
+    "nombre": "Día A — Empuje",
+    "ejercicios": [
+      {
+        "nombre": "Press de Banca",
+        "series": [
+          {"numSerie": 1, "kilos": 0, "reps": 10},
+          {"numSerie": 2, "kilos": 0, "reps": 10},
+          {"numSerie": 3, "kilos": 0, "reps": 10}
+        ]
+      },
+      {
+        "nombre": "Press Militar",
+        "series": [
+          {"numSerie": 1, "kilos": 0, "reps": 12},
+          {"numSerie": 2, "kilos": 0, "reps": 12}
+        ]
+      }
+    ]
+  }'
+```
+
+```json Response
+{
+  "status": "success",
+  "message": "Rutina y ejercicios guardados correctamente",
+  "routine_id": 7
+}
+```
+
+</CodeGroup>
+
+---
+
+## GET /routines/{routine_id}
+
+Returns a detailed view of a routine including exercise instructions, coaching tips, and historical progression data from the user's most recent completed session.
+
+**Auth required:** Yes
+
+### Path parameters
+
+<ParamField path="routine_id" type="integer" required>
+  The ID of the routine to retrieve.
+</ParamField>
+
+### Response — 200
+
+<ResponseField name="id" type="integer" required>
+  Routine ID.
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Routine display name.
+</ResponseField>
+
+<ResponseField name="created_at" type="string" required>
+  ISO 8601 creation timestamp.
+</ResponseField>
+
+<ResponseField name="total_exercises" type="integer" required>
+  Number of exercises in this routine.
+</ResponseField>
+
+<ResponseField name="total_series" type="integer" required>
+  Total number of sets across all exercises.
+</ResponseField>
+
+<ResponseField name="total_volume" type="number" required>
+  Always `0.0` — the session starts fresh and volume is calculated client-side as the user logs sets.
+</ResponseField>
+
+<ResponseField name="exercises" type="object[]" required>
+  <Expandable title="exercise properties">
+    <ResponseField name="id" type="integer">
+      RoutineExercise row ID.
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Exercise name.
+    </ResponseField>
+    <ResponseField name="instructions" type="string">
+      Step-by-step execution instructions from the exercise catalog.
+    </ResponseField>
+    <ResponseField name="pro_tips" type="string[]">
+      Expert coaching cues for better performance.
+    </ResponseField>
+    <ResponseField name="common_mistakes" type="string[]">
+      Frequent errors to avoid.
+    </ResponseField>
+    <ResponseField name="series" type="object[]">
+      <Expandable title="serie properties">
+        <ResponseField name="numSerie" type="integer">
+          Set number.
+        </ResponseField>
+        <ResponseField name="kilos" type="number">
+          Always `0` — the client uses `prev_kilos` as the pre-filled suggestion.
+        </ResponseField>
+        <ResponseField name="reps" type="integer">
+          Always `0` — the client uses `prev_reps` as the pre-filled suggestion.
+        </ResponseField>
+        <ResponseField name="anterior" type="string">
+          Human-readable text of the previous session's performance for this set, e.g. `"60kg x 10"`. Returns `"--"` if no prior session exists.
+        </ResponseField>
+        <ResponseField name="prev_kilos" type="number">
+          Numeric weight from the last session. Used to pre-fill the input field in the Android UI.
+        </ResponseField>
+        <ResponseField name="prev_reps" type="integer">
+          Numeric rep count from the last session. Used to pre-fill the input field in the Android UI.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Note>
+  `kilos` and `reps` in each serie are always returned as `0`. The Android client should use `prev_kilos` and `prev_reps` to pre-fill input fields, showing the user their starting suggestion based on the previous session.
+</Note>
+
+### Example
+
+<CodeGroup>
+
+```bash curl
+curl --request GET \
+  --url https://kern-api.vercel.app/routines/7 \
+  --header "Authorization: Bearer <accessToken>"
+```
+
+```json Response
+{
+  "id": 7,
+  "name": "Día A — Empuje",
+  "created_at": "2026-05-14T10:00:00+00:00",
+  "total_exercises": 2,
+  "total_series": 5,
+  "total_volume": 0.0,
+  "exercises": [
+    {
+      "id": 21,
+      "name": "Press de Banca",
+      "instructions": "Túmbate en el banco con los pies apoyados en el suelo...",
+      "pro_tips": ["Mantén los omóplatos retraídos", "Agarre ligeramente más ancho que los hombros"],
+      "common_mistakes": ["Rebotar la barra en el pecho", "Levantar los pies del suelo"],
+      "series": [
+        {
+          "numSerie": 1,
+          "kilos": 0,
+          "reps": 0,
+          "anterior": "60kg x 10",
+          "prev_kilos": 60.0,
+          "prev_reps": 10
+        },
+        {
+          "numSerie": 2,
+          "kilos": 0,
+          "reps": 0,
+          "anterior": "62.5kg x 8",
+          "prev_kilos": 62.5,
+          "prev_reps": 8
+        }
+      ]
+    }
+  ]
+}
+```
+
+</CodeGroup>
+
+---
+
+## PUT /routines/{routine_id}
+
+Updates the routine's name and completely replaces all its exercises. All existing exercises for this routine are deleted and re-created in a single transaction.
+
+**Auth required:** Yes
+
+### Path parameters
+
+<ParamField path="routine_id" type="integer" required>
+  The ID of the routine to update.
+</ParamField>
+
+### Request body
+
+Same shape as `POST /routines/create`: `user_id`, `nombre`, and `ejercicios[]`.
+
+### Response — 200
+
+<ResponseField name="status" type="string" required>
+  Always `"success"` on success.
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  `"Rutina actualizada correctamente"`
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash curl
+curl --request PUT \
+  --url https://kern-api.vercel.app/routines/7 \
+  --header "Authorization: Bearer <accessToken>" \
+  --header "Content-Type: application/json" \
+  --data '{
+    "user_id": 42,
+    "nombre": "Día A — Empuje (revisado)",
+    "ejercicios": [
+      {
+        "nombre": "Press de Banca",
+        "series": [
+          {"numSerie": 1, "kilos": 0, "reps": 10},
+          {"numSerie": 2, "kilos": 0, "reps": 10},
+          {"numSerie": 3, "kilos": 0, "reps": 10},
+          {"numSerie": 4, "kilos": 0, "reps": 10}
+        ]
+      }
+    ]
+  }'
+```
+
+```json Response
+{
+  "status": "success",
+  "message": "Rutina actualizada correctamente"
+}
+```
+
+</CodeGroup>
+
+---
+
+## DELETE /routines/{routine_id}
+
+Permanently deletes a routine and all of its associated exercises. This action cannot be undone. SQLAlchemy cascade rules ensure all `routine_exercises` rows are removed automatically.
+
+**Auth required:** Yes
+
+### Path parameters
+
+<ParamField path="routine_id" type="integer" required>
+  The ID of the routine to delete.
+</ParamField>
+
+### Response — 200
+
+<ResponseField name="status" type="string" required>
+  Always `"success"` on success.
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  `"Rutina eliminada correctamente"`
+</ResponseField>
+
+### Errors
+
+| Status | `detail` | Cause |
+|---|---|---|
+| `404` | `"Rutina no encontrada o no tienes permiso para eliminarla"` | No routine with this ID exists for the authenticated user |
+
+### Example
+
+<CodeGroup>
+
+```bash curl
+curl --request DELETE \
+  --url https://kern-api.vercel.app/routines/7 \
+  --header "Authorization: Bearer <accessToken>"
+```
+
+```json Response
+{
+  "status": "success",
+  "message": "Rutina eliminada correctamente"
+}
+```
+
+</CodeGroup>

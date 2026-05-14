@@ -1,0 +1,136 @@
+---
+title: "Deploy the KERN API on Vercel with Neon PostgreSQL"
+description: "Step-by-step guide to deploying the KERN FastAPI backend to Vercel, configuring environment variables, and connecting a Neon PostgreSQL database."
+---
+
+The KERN API is a FastAPI application deployed to Vercel using the `@vercel/python` runtime. All HTTP traffic is routed through a single entry point at `api/index.py`. The database tables are created automatically on first startup, so you don't need to run migrations manually.
+
+## Prerequisites
+
+- A [Vercel](https://vercel.com) account
+- A [Neon](https://neon.tech) PostgreSQL project
+- The KERN API repository forked or cloned
+
+## Configuration files
+
+### vercel.json
+
+Vercel uses this file to know how to build and route requests:
+
+```json vercel.json
+{
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "api/index.py"
+    }
+  ]
+}
+```
+
+Every request — regardless of path — is forwarded to `api/index.py`, which mounts the FastAPI application.
+
+### requirements.txt
+
+Vercel installs these dependencies before each deployment:
+
+```text requirements.txt
+fastapi
+uvicorn[standard]
+python-jose[cryptography]
+pydantic
+python-multipart
+python-dotenv
+sqlalchemy[asyncio]
+asyncpg
+psycopg2-binary
+```
+
+## Environment variables
+
+Set these in your Vercel project's **Settings → Environment Variables** panel before deploying.
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string from Neon |
+| `SECRET_KEY` | Secret used to sign JWT tokens |
+
+**`DATABASE_URL` format:**
+
+```
+postgresql+asyncpg://user:password@host/dbname
+```
+
+Neon provides this string in their dashboard under **Connection Details**. Use the `asyncpg` driver format shown above — the API strips any `?sslmode=require` suffix and manages SSL via the connection arguments directly.
+
+<Warning>
+Never commit `SECRET_KEY` or `DATABASE_URL` to source control. Keep them in Vercel's environment variable settings or a local `.env` file that is listed in `.gitignore`.
+</Warning>
+
+## Database tables
+
+The API calls `create_db_and_tables_sync()` on startup. This function uses SQLAlchemy to inspect the database and create any missing tables:
+
+| Table | Purpose |
+|---|---|
+| `users` | User accounts, credentials, and profile data |
+| `routines` | Training plans created by or assigned to users |
+| `routine_exercises` | Individual exercises and sets within each routine |
+| `workout_sessions` | Completed workout history (volume, duration, steps) |
+
+If the tables already exist, startup is a no-op — the function uses `checkfirst=True`.
+
+## Deployment steps
+
+<Steps>
+  <Step title="Fork or clone the repository">
+    Fork the KERN API repository to your GitHub account, then connect it to a new Vercel project via the Vercel dashboard or the `vercel` CLI.
+  </Step>
+
+  <Step title="Create a Neon database">
+    Sign in to [Neon](https://neon.tech), create a new project, and copy the connection string from **Connection Details**. Make sure to select the `asyncpg` (async Python) format if available, or start with the standard `postgresql://` string and replace `postgresql://` with `postgresql+asyncpg://`.
+  </Step>
+
+  <Step title="Set environment variables in Vercel">
+    In your Vercel project, go to **Settings → Environment Variables** and add:
+
+    - `DATABASE_URL` — your Neon connection string
+    - `SECRET_KEY` — a long, random string (use a password generator)
+
+    Apply the variables to **Production**, **Preview**, and **Development** environments as appropriate.
+  </Step>
+
+  <Step title="Deploy">
+    Push a commit to your main branch, or trigger a manual deployment from the Vercel dashboard. Vercel will install dependencies from `requirements.txt`, build the project, and start the serverless function.
+
+    On the first request after deployment, the API will create the database tables and log `[INFO] Tablas de base de datos listas y verificadas.`
+  </Step>
+</Steps>
+
+## Verifying the deployment
+
+Once deployed, visit `/docs` on your Vercel URL to access the FastAPI auto-generated Swagger UI. You can test every endpoint interactively without writing any code.
+
+```
+https://your-kern-api.vercel.app/docs
+```
+
+You can also hit the root endpoint to confirm the API is online:
+
+```bash
+curl https://your-kern-api.vercel.app/
+```
+
+```json
+{
+  "message": "Bienvenido a Kern API",
+  "version": "1.0.0",
+  "docs": "/docs"
+}
+```

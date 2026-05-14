@@ -1,0 +1,54 @@
+---
+title: "How KERN protects your data"
+description: "An overview of password hashing, JWT signing, SSL-enforced database connections, and CDN-served avatars that protect your KERN account."
+---
+
+KERN applies several layers of protection to your data, from the moment you create a password to every API call your device makes. This page explains what those protections are and what they mean for you in practice.
+
+## Password storage
+
+Your password is **never stored in plain text**. When you register or change your password, KERN hashes it using the SHA-256 algorithm (Python's `hashlib` library) before writing anything to the database. SHA-256 is a one-way cryptographic function — there is no mathematical way to reverse a hash back to the original password.
+
+In practical terms: even if someone obtained direct access to the database, they would find only hashed values, not your actual password.
+
+## JWT tokens
+
+Authentication tokens are signed with the **HS256** algorithm using a secret key that lives only on the server. Each token encodes your username and an expiry timestamp. The server validates both on every request.
+
+<CardGroup cols={2}>
+  <Card title="Short-lived by design" icon="clock">
+    Tokens expire after 30 minutes. A stolen token has a narrow window during which it can be misused.
+  </Card>
+  <Card title="Stateless verification" icon="shield-check">
+    The server does not store session state. Token validity is verified cryptographically on every request, with no database lookup required.
+  </Card>
+</CardGroup>
+
+## Database security
+
+KERN stores data in a PostgreSQL database hosted on [Neon](https://neon.tech). All connections from the API to the database require SSL. The connection string is loaded from an environment variable — it is never committed to source code.
+
+The database holds the following tables:
+
+| Table | Contents |
+|---|---|
+| `users` | Credentials (hashed), profile data, quiz state |
+| `routines` | User-created and auto-generated training plans |
+| `routine_exercises` | Exercises and sets within each routine |
+| `workout_sessions` | Completed workout history including volume and steps |
+
+## Avatar images
+
+Profile photos are not stored on the API server. When you upload an avatar, the Android app sends the image directly to Cloudinary, which returns a public `https://res.cloudinary.com/...` URL. Only that URL is stored in the `avatar_url` column. Images are served over HTTPS via Cloudinary's CDN.
+
+## CORS policy
+
+The API accepts requests from any origin (`allow_origins=["*"]`). This is intentional — KERN is designed to be consumed by the native Android app, which does not have a fixed origin in the way a browser-based app would.
+
+## What to do if you suspect your account is compromised
+
+<Note>
+Log in again via `POST /login`. This issues you a fresh token. Any previously issued token expires automatically within 30 minutes, so even an attacker who obtained a token will lose access quickly without your credentials.
+</Note>
+
+If you believe your credentials have been exposed, change your password immediately by contacting the account owner or re-registering with a new email address, since KERN does not currently expose a password-reset endpoint.

@@ -1,0 +1,81 @@
+---
+title: 'Logging sets during an active KERN workout session'
+description: 'Step-by-step guide to starting a session, entering weights and reps, reading last-session suggestions, using the rest timer, and saving your workout in KERN.'
+---
+
+The active workout screen is where your training happens. KERN shows you every exercise in your routine, pre-fills weight and rep fields with what you lifted last session, and automatically starts a rest timer after each completed set. When you are done, tapping **Finalizar** saves everything to your history and updates your dashboard stats.
+
+## Starting a session
+
+Tap the **Rendimiento** button on the dashboard, or select your routine from the home screen. The active workout screen loads your full exercise list with all sets ready to fill in.
+
+## Logging a set
+
+<Steps>
+  <Step title="Find your exercise in the list">
+    The screen shows each exercise in your routine. Scroll to the exercise you want to log.
+  </Step>
+  <Step title="Check the 'Anterior' suggestion">
+    Below the weight and rep fields you will see a suggestion like **"Anterior: 60 kg × 10"**. This is exactly what you lifted for that set in your previous session. Use it as your starting target.
+
+    The fields are pre-filled with those values so you can either match them or type a new number straight away.
+  </Step>
+  <Step title="Enter your weight and reps">
+    Tap the **kg** field and type the weight you are using. Tap the **reps** field and enter how many repetitions you completed.
+  </Step>
+  <Step title="Tap the checkmark to complete the set">
+    Tap the checkmark icon next to the set to mark it as done. The rest timer starts automatically.
+  </Step>
+  <Step title="Rest, then repeat">
+    Wait out the rest period — the timer counts down on screen. When it finishes, move on to the next set and repeat the process.
+  </Step>
+</Steps>
+
+<Tip>
+  The suggested weight from your last session is a target, not a ceiling. If the previous weight felt easy, add 2.5–5 kg. Consistently beating your previous numbers is the core principle of progressive overload.
+</Tip>
+
+## How last-session suggestions work
+
+Every time you load a workout, KERN fetches your most recent completed session for that routine and matches each set by its position. The values are shown as:
+
+- **Anterior** — a text label (e.g., `"60 kg x 10"`) displayed below the input fields
+- **prev_kilos** and **prev_reps** — the numeric values pre-filled into the input fields as a starting suggestion
+
+If you have never completed this routine before, the fields start at 0 kg and 0 reps.
+
+## The rest timer
+
+The rest timer starts automatically after you mark a set complete. You can adjust the timer duration to match your preferred rest period. The timer is shown prominently on screen so you can keep track without watching the clock.
+
+## Step counter
+
+Your phone's step sensor runs in the background for the entire session as a foreground service. You do not need to do anything — KERN records your steps automatically and includes the total in your session summary.
+
+<Note>
+  The step counter continues working even if you briefly switch to another app. KERN uses a foreground service to prevent Android from stopping the count mid-session.
+</Note>
+
+## Finishing your workout
+
+When you have completed all exercises, tap **Finalizar**. KERN will:
+
+1. Calculate your **total volume** (sum of weight × reps across every completed set)
+2. Display a session summary showing total volume and total steps
+3. Save the session to your history immediately
+4. Update your dashboard stats (workouts, steps, training days, and volume chart)
+
+<Warning>
+  If you close the app before tapping **Finalizar**, your session data will not be saved to your history. Always finish sessions using the button in the app.
+</Warning>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Manage your profile" icon="user" href="/guide/profile">
+    Update your username, change your avatar, or sign out of KERN.
+  </Card>
+  <Card title="Track your progress" icon="chart-line" href="/guide/dashboard">
+    Return to the dashboard to see how your latest session updated your volume chart and stats.
+  </Card>
+</CardGroup>

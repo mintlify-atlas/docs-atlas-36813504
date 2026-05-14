@@ -1,0 +1,114 @@
+---
+title: "Authenticating with the KERN API"
+description: "Learn how to obtain a JWT token via login or registration, include it in every request, handle expiry, and interpret common auth errors."
+---
+
+Every protected endpoint in the KERN API requires a valid JWT token. You get a token by registering a new account or logging in to an existing one, then include it in each request using the `Authorization` header.
+
+## Getting a token
+
+Both the registration and login endpoints return a token in the same response shape. Use whichever applies to your situation.
+
+<CodeGroup>
+
+```bash Register (new account)
+curl -X POST https://your-kern-api.vercel.app/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "jaimegayo",
+    "email": "jaime@example.com",
+    "password": "mysecretpassword"
+  }'
+```
+
+```bash Login (existing account)
+curl -X POST https://your-kern-api.vercel.app/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "jaime@example.com",
+    "password": "mysecretpassword"
+  }'
+```
+
+</CodeGroup>
+
+Both endpoints return the same response structure:
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "user": {
+    "id": 1,
+    "username": "jaimegayo",
+    "email": "jaime@example.com",
+    "full_name": null,
+    "avatar_url": null,
+    "role": "user",
+    "has_completed_quiz": false
+  }
+}
+```
+
+Store the value of `accessToken` — you'll need it for every subsequent request.
+
+## Using the token
+
+Include the token in the `Authorization` header as a Bearer token:
+
+```bash
+curl https://your-kern-api.vercel.app/users/me \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+The header format is always:
+
+```
+Authorization: Bearer <your-token>
+```
+
+## Token expiry
+
+Tokens expire **30 minutes** after they are issued. After expiry, protected endpoints will reject your requests with a 401 error. Re-authenticate by calling `POST /login` again to get a fresh token.
+
+<Note>
+There is no refresh token endpoint. When your token expires, log in again using your email and password.
+</Note>
+
+## Username updates and new tokens
+
+When you update your username via `PUT /users/update_name`, the endpoint returns a new `LoginResponse` with a fresh token. Switch to using that new token immediately for subsequent requests, since the old token encodes the previous username.
+
+## Error responses
+
+<AccordionGroup>
+  <Accordion title="401 Unauthorized — invalid or expired token">
+    ```json
+    {
+      "detail": "No se pudo validar el token de acceso"
+    }
+    ```
+
+    This means the token you provided is invalid, malformed, or has expired. Re-authenticate via `POST /login` to get a new token.
+  </Accordion>
+
+  <Accordion title="400 Bad Request — account disabled">
+    ```json
+    {
+      "detail": "Usuario inactivo"
+    }
+    ```
+
+    Your account has been marked as inactive. Contact support if you believe this is an error.
+  </Accordion>
+
+  <Accordion title="401 Unauthorized — wrong credentials">
+    ```json
+    {
+      "detail": "Email o contraseña incorrectos"
+    }
+    ```
+
+    Returned by `POST /login` when the email or password does not match any account. Check your credentials and try again.
+  </Accordion>
+</AccordionGroup>

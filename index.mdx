@@ -1,133 +1,72 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
-icon: 'star'
+title: "KERN: Intelligent Fitness Management System"
+description: "KERN is a fitness management platform with an algorithmic routine generator, biometric step tracking, and training progression analytics — built on FastAPI and Android."
 ---
 
-## Setting up
+KERN is an intelligent fitness management system that eliminates the guesswork from strength training. It automatically generates personalized workout routines based on your goals, tracks biometric data through your phone's sensors, and visualizes your training progression over time — all synced to the cloud.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Get Started" icon="rocket" href="/quickstart">
+    Set up your account and complete your first workout in minutes.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Architecture" icon="sitemap" href="/architecture">
+    Understand how the FastAPI backend, PostgreSQL database, and Android app fit together.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Explore all REST endpoints for routines, workouts, users, and exercises.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="User Guide" icon="book-open" href="/guide/registration">
+    Step-by-step guide from registration through completing your first training session.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Why KERN?
 
-Everything you need to create world-class documentation.
+Most gym-goers lack a structured record of their progress, leading to stagnation. KERN solves this with three core capabilities:
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+- **Algorithmic routine generation** — Answer a short questionnaire and KERN automatically assigns a scientifically-structured workout plan (Full Body, PPL, or Torso-Leg split) matched to your goals and training environment.
+- **Biometric step tracking** — Your Android phone's step counter runs as a foreground service during training, recording all activity even if you switch apps.
+- **Progressive overload tracking** — Every set shows what you lifted last time so you always know exactly what to beat.
 
-## Make your content agent ready
+## How it works
 
-Make your docs work for humans and AI agents alike.
+<Steps>
+  <Step title="Create your account">
+    Register with your email and password. Your credentials are secured with SHA-256 hashing and all sessions use JWT tokens.
+  </Step>
+  <Step title="Complete the fitness questionnaire">
+    Answer a few questions about your training environment (gym or home) and weekly frequency. KERN generates your first routine automatically.
+  </Step>
+  <Step title="Start training">
+    Open your assigned routine, log your sets with weight and reps, and use the rest timer between sets. The step counter tracks your activity throughout.
+  </Step>
+  <Step title="Track your progress">
+    After finishing, view your total volume, steps, and training history on the dashboard. Each subsequent session shows your previous performance as a target to beat.
+  </Step>
+</Steps>
 
-<Columns cols={2}>
-  <Card
-    title="Prompt component"
-    icon="robot"
-    href="/agent-ready/prompt"
-  >
-    Embed shareable AI prompts readers can copy or open in Cursor.
-  </Card>
-  <Card
-    title="Visibility"
-    icon="eye"
-    href="/agent-ready/visibility"
-  >
-    Show different content to humans and agents reading your docs.
-  </Card>
-  <Card
-    title="Contextual menu"
-    icon="bolt"
-    href="/agent-ready/contextual"
-  >
-    Give readers one-click access to Claude, ChatGPT, Cursor, and more.
-  </Card>
-  <Card
-    title="AI coding tools"
-    icon="wand-magic-sparkles"
-    href="/ai-tools/claude-code"
-  >
-    Set up Claude Code, Cursor, or Windsurf with Mintlify's skill.
-  </Card>
-</Columns>
+## Tech stack
 
-## Need inspiration?
+| Layer | Technology | Role |
+|---|---|---|
+| Backend | FastAPI (Python) | Async REST API |
+| Database | PostgreSQL (Neon) | Cloud-hosted relational storage |
+| Frontend | Android (Java) | Native app with MVVM architecture |
+| Auth | JWT + SHA-256 | Stateless token-based sessions |
+| Media | Cloudinary | Profile avatar CDN |
+| Hosting | Vercel | Serverless backend deployment |
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<CardGroup cols={2}>
+  <Card title="Core features" icon="dumbbell" href="/features/routine-generation">
+    Learn how routine generation, step counting, and progression tracking work under the hood.
+  </Card>
+  <Card title="Security" icon="shield" href="/security/authentication">
+    Understand how KERN protects your data with JWT authentication and password hashing.
+  </Card>
+  <Card title="Deployment" icon="cloud" href="/deployment/backend">
+    Deploy the FastAPI backend on Vercel and connect it to Neon PostgreSQL.
+  </Card>
+  <Card title="Cloudinary integration" icon="image" href="/deployment/cloudinary">
+    Set up profile avatar uploads with the Cloudinary Android SDK.
+  </Card>
+</CardGroup>

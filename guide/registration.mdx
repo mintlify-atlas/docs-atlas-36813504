@@ -1,0 +1,54 @@
+---
+title: 'Create your KERN account and get started today'
+description: 'Learn how to sign up for KERN in under a minute. Your account securely stores your routines, workout history, and progress — all in one place.'
+---
+
+KERN requires an account to save your routines and track your workout history across sessions. Registration takes less than a minute, and you are automatically logged in the moment your account is created — no email confirmation needed.
+
+## What you need before you start
+
+- The KERN app installed on your Android device
+- A valid email address
+- A username you want to use inside the app
+
+<Steps>
+  <Step title="Open the app and tap 'Empezar'">
+    When you launch KERN for the first time, you will see the welcome screen. Tap the **Empezar** (Get Started) button to begin creating your account.
+  </Step>
+  <Step title="Fill in the registration form">
+    Enter your details in the sign-up form:
+
+    | Field | Required | Notes |
+    | --- | --- | --- |
+    | Username | Yes | Must be unique across all KERN users |
+    | Email | Yes | Used to identify your account at login |
+    | Password | Yes | Never stored in plain text — see security note below |
+    | Full name | No | Optional display name |
+    | Phone | No | Optional contact detail |
+  </Step>
+  <Step title="Submit and get logged in automatically">
+    Tap **Registrarse** to create your account. KERN immediately issues a JWT session token and logs you in — you will be taken straight to the initial questionnaire to set up your fitness profile.
+  </Step>
+</Steps>
+
+<Note>
+  You do not need to verify your email before using KERN. Your account is active and ready as soon as you submit the registration form.
+</Note>
+
+<Note>
+  Your password is hashed using SHA-256 before it is stored. KERN never holds your password in plain text, even internally.
+</Note>
+
+## What happens after registration
+
+Once your account is created, KERN automatically:
+
+- Issues a JWT (JSON Web Token) to authenticate your session
+- Sets your account to the initial state (`has_completed_quiz: false`)
+- Redirects you to the fitness questionnaire to generate your first routine
+
+## Next step
+
+<Card title="Set up your fitness profile" icon="clipboard-list" href="/guide/questionnaire">
+  Complete the one-time questionnaire so KERN can generate a personalised routine for you.
+</Card>

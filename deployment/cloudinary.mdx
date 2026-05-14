@@ -1,0 +1,120 @@
+---
+title: "Integrating Cloudinary for avatar uploads in KERN"
+description: "How KERN uses the Cloudinary Android SDK to upload profile photos, store CDN URLs, and display avatars with Glide throughout the app."
+---
+
+KERN uses [Cloudinary](https://cloudinary.com) to store and serve user profile avatars. Images are uploaded directly from the Android app to Cloudinary, which returns a public HTTPS URL. That URL is then stored in the KERN API, which never handles raw image data itself.
+
+## Why Cloudinary
+
+Cloudinary serves images through a global CDN, applies automatic format optimization, and removes the need for file storage on the backend server. This keeps the KERN API stateless and fast.
+
+## Upload flow
+
+<Steps>
+  <Step title="User selects a photo">
+    The user taps their avatar on the profile screen. Android's photo picker opens, allowing them to choose an image from their gallery.
+  </Step>
+
+  <Step title="App uploads to Cloudinary">
+    The Android app uses the Cloudinary `MediaManager` to upload the image binary directly to Cloudinary. The upload is handled asynchronously — the API server is not involved at this stage.
+
+    ```java
+    MediaManager.get()
+        .upload(imageUri)
+        .unsigned(BuildConfig.CLOUDINARY_UPLOAD_PRESET)
+        .callback(uploadCallback)
+        .dispatch();
+    ```
+  </Step>
+
+  <Step title="Cloudinary returns a URL">
+    On success, Cloudinary returns a public HTTPS URL of the form:
+
+    ```
+    https://res.cloudinary.com/<cloud_name>/image/upload/<public_id>.jpg
+    ```
+  </Step>
+
+  <Step title="URL is sent to the KERN API">
+    The app sends the URL to the KERN API using the avatar update endpoint:
+
+    ```bash
+    curl -X PUT https://your-kern-api.vercel.app/users/avatar \
+      -H "Authorization: Bearer <token>" \
+      -H "Content-Type: application/json" \
+      -d '{"avatar_url": "https://res.cloudinary.com/..."}'
+    ```
+
+    The URL is stored in the `avatar_url` column of the `users` table.
+  </Step>
+
+  <Step title="Glide loads the avatar">
+    Throughout the app, Glide loads the avatar from the stored Cloudinary URL:
+
+    ```java
+    Glide.with(context)
+        .load(user.getAvatarUrl())
+        .circleCrop()
+        .into(imageView);
+    ```
+  </Step>
+</Steps>
+
+## Setup
+
+### 1. Create a Cloudinary account
+
+Sign in at [cloudinary.com](https://cloudinary.com) and create a free account. Note your **Cloud Name**, **API Key**, and **API Secret** from the dashboard.
+
+### 2. Create an upload preset
+
+In the Cloudinary dashboard, go to **Settings → Upload → Upload presets** and create an **unsigned** preset. This allows the Android app to upload without exposing your API secret.
+
+### 3. Add credentials to local.properties
+
+Add the following to `local.properties` in the Android project root. This file is excluded from version control.
+
+```properties local.properties
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_UPLOAD_PRESET=your_unsigned_preset_name
+```
+
+These are injected into the build as `BuildConfig` fields via `build.gradle.kts`:
+
+```kotlin build.gradle.kts
+buildConfigField("String", "CLOUDINARY_CLOUD_NAME",
+    "\"${localProperties.getProperty("CLOUDINARY_CLOUD_NAME")}\"")
+buildConfigField("String", "CLOUDINARY_API_KEY",
+    "\"${localProperties.getProperty("CLOUDINARY_API_KEY")}\"")
+buildConfigField("String", "CLOUDINARY_UPLOAD_PRESET",
+    "\"${localProperties.getProperty("CLOUDINARY_UPLOAD_PRESET")}\"")
+```
+
+### 4. Initialize MediaManager
+
+Initialize the Cloudinary `MediaManager` in your `Application` class or the activity that handles avatar selection:
+
+```java
+Map<String, Object> config = new HashMap<>();
+config.put("cloud_name", BuildConfig.CLOUDINARY_CLOUD_NAME);
+config.put("api_key", BuildConfig.CLOUDINARY_API_KEY);
+MediaManager.init(this, config);
+```
+
+## Dependency
+
+The Cloudinary Android SDK is declared in `app/build.gradle.kts`:
+
+```kotlin
+implementation("com.cloudinary:cloudinary-android:2.2.0")
+```
+
+## Using a different image host
+
+The `avatar_url` field in the KERN API accepts any valid HTTPS URL. If you deploy your own instance of KERN and prefer a different storage solution — such as AWS S3, Imgix, or your own CDN — you can send any HTTPS image URL to `PUT /users/avatar` and Glide will load it the same way.
+
+<Note>
+The URL must be publicly accessible over HTTPS. Private or signed URLs that expire will cause broken avatar images after the signature expires.
+</Note>

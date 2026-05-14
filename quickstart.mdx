@@ -1,81 +1,264 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
-icon: 'rocket'
+title: "Get started with KERN"
+description: "Create an account, complete the fitness quiz, fetch your generated routine, and record your first finished workout — all via the KERN REST API."
 ---
 
-## Get started in three steps
-
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+KERN's onboarding flow is linear by design: register to get a token, complete the quiz to generate a routine, then start training. The steps below walk you through the full sequence using real API calls. Every protected endpoint requires the `Authorization: Bearer <token>` header returned in step 1.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  All examples below target the production API hosted on Vercel. Replace the base URL with `http://localhost:8002` if you are running the backend locally.
 </Note>
+
+<Steps>
+  <Step title="Register and get your access token">
+    Send a `POST /register` request with your `username`, `email`, and `password`. The API hashes the password with SHA-256, creates a user record, and returns a signed JWT immediately — no separate login step needed.
+
+    <CodeGroup>
+
+    ```bash cURL
+    curl --request POST \
+      --url https://your-kern-api.vercel.app/register \
+      --header 'Content-Type: application/json' \
+      --data '{
+        "username": "alex",
+        "email": "alex@example.com",
+        "password": "strongpassword123"
+      }'
+    ```
+
+    ```json Response shape
+    {
+      "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "token_type": "bearer",
+      "user": {
+        "id": 42,
+        "username": "alex",
+        "email": "alex@example.com",
+        "full_name": null,
+        "phone": null,
+        "avatar_url": null,
+        "role": "user",
+        "bio": null,
+        "has_completed_quiz": false,
+        "assigned_routine": null,
+        "created_at": "2026-05-14T10:30:00Z",
+        "disabled": false
+      }
+    }
+    ```
+
+    </CodeGroup>
+
+    <Tip>
+      Save the `accessToken` value. You will pass it as a Bearer token in every subsequent request. Tokens expire after 30 minutes — call `POST /login` with your email and password to refresh.
+    </Tip>
+
+    If the username or email is already taken, the API returns `HTTP 400` with `"El usuario o email ya existe"`.
+  </Step>
+
+  <Step title="Complete the fitness quiz">
+    Send a `POST /users/complete-quiz` with your chosen routine type. This sets `has_completed_quiz` to `true` on your user record and triggers automatic routine generation: the backend reads `ROUTINE_CONFIGS` for the selected type, queries `exercises_gym_id.json` to select one exercise per movement pattern, and writes `RoutineExercise` rows to the database.
+
+    **Available routine values:**
+
+    | Value | Exercises generated |
+    |---|---|
+    | `"Full Body"` | 5 exercises — horizontal push, vertical pull, squat, vertical push, hip hinge |
+    | `"PPL (Push Pull Leg)"` | 8 exercises — chest, upper chest, shoulders, back (vertical + horizontal), biceps, quads, hamstrings |
+    | `"Torso-Pierna"` | 6 exercises — chest (two patterns), back (two patterns), squat, hip hinge |
+
+    <CodeGroup>
+
+    ```bash cURL
+    curl --request POST \
+      --url https://your-kern-api.vercel.app/users/complete-quiz \
+      --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+      --header 'Content-Type: application/json' \
+      --data '{
+        "assigned_routine": "Full Body"
+      }'
+    ```
+
+    ```json Response shape
+    {
+      "id": 42,
+      "username": "alex",
+      "email": "alex@example.com",
+      "has_completed_quiz": true,
+      "assigned_routine": "Full Body",
+      "avatar_url": null,
+      "role": "user",
+      "created_at": "2026-05-14T10:30:00Z"
+    }
+    ```
+
+    </CodeGroup>
+
+    <Warning>
+      The `assigned_routine` string must match one of the three values exactly, including capitalisation and parentheses. An unrecognised value is saved to the user record but no exercises will be generated.
+    </Warning>
+  </Step>
+
+  <Step title="Fetch your generated routine">
+    Retrieve all routines for the authenticated user with `GET /users/my-routines`. The response is an array of routine objects, each containing its `id`, `name`, creation timestamp, and a list of exercises with their default series (three sets at 0 kg × 10 reps).
+
+    <CodeGroup>
+
+    ```bash cURL
+    curl --request GET \
+      --url https://your-kern-api.vercel.app/users/my-routines \
+      --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+    ```
+
+    ```json Response shape
+    [
+      {
+        "id": 7,
+        "name": "Mi Rutina Full Body Inicial",
+        "created_at": "2026-05-14T10:31:00Z",
+        "exercises": [
+          {
+            "id": 101,
+            "name": "Bench Press",
+            "series": [
+              { "numSerie": 1, "kilos": 0, "reps": 10 },
+              { "numSerie": 2, "kilos": 0, "reps": 10 },
+              { "numSerie": 3, "kilos": 0, "reps": 10 }
+            ]
+          },
+          {
+            "id": 102,
+            "name": "Pull-Up",
+            "series": [
+              { "numSerie": 1, "kilos": 0, "reps": 10 },
+              { "numSerie": 2, "kilos": 0, "reps": 10 },
+              { "numSerie": 3, "kilos": 0, "reps": 10 }
+            ]
+          }
+        ]
+      }
+    ]
+    ```
+
+    </CodeGroup>
+
+    Note the routine `id` — you will use it to start a workout in the next step.
+  </Step>
+
+  <Step title="Start a workout and view historical suggestions">
+    Before recording a session, fetch the detailed routine view with `GET /routines/{id}`. This endpoint enriches each series with data from your most recent `WorkoutSession` for that routine: `prev_kilos` and `prev_reps` are numeric values for pre-filling input fields; `anterior` is a human-readable string (e.g. `"60.0kg x 8"`) shown as a visual suggestion.
+
+    <CodeGroup>
+
+    ```bash cURL
+    curl --request GET \
+      --url https://your-kern-api.vercel.app/routines/7 \
+      --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+    ```
+
+    ```json Response shape
+    {
+      "id": 7,
+      "name": "Mi Rutina Full Body Inicial",
+      "created_at": "2026-05-14T10:31:00Z",
+      "total_exercises": 5,
+      "total_series": 15,
+      "total_volume": 0.0,
+      "exercises": [
+        {
+          "id": 101,
+          "name": "Bench Press",
+          "instructions": "Lie flat on the bench, grip the bar slightly wider than shoulder width...",
+          "pro_tips": ["Keep shoulder blades retracted throughout the movement"],
+          "common_mistakes": ["Flaring elbows too wide at the bottom"],
+          "series": [
+            {
+              "numSerie": 1,
+              "kilos": 0,
+              "reps": 0,
+              "anterior": "60.0kg x 8",
+              "prev_kilos": 60.0,
+              "prev_reps": 8
+            },
+            {
+              "numSerie": 2,
+              "kilos": 0,
+              "reps": 0,
+              "anterior": "62.5kg x 7",
+              "prev_kilos": 62.5,
+              "prev_reps": 7
+            }
+          ]
+        }
+      ]
+    }
+    ```
+
+    </CodeGroup>
+
+    <Tip>
+      On your very first session there is no history yet, so `anterior` will be `"--"` and both `prev_kilos` and `prev_reps` will be `0`. Complete the workout to establish your baseline for next time.
+    </Tip>
+  </Step>
+
+  <Step title="Finish the workout and save your session">
+    When all exercises are done, send `POST /workouts/finish`. Include the routine name, duration in seconds, total volume (kilograms × repetitions summed across all completed sets), step count recorded by the device sensor, and a `data_json` snapshot of every exercise and series.
+
+    The `data_json` array becomes the source of truth for `prev_kilos` and `prev_reps` in all future sessions for this routine.
+
+    <CodeGroup>
+
+    ```bash cURL
+    curl --request POST \
+      --url https://your-kern-api.vercel.app/workouts/finish \
+      --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+      --header 'Content-Type: application/json' \
+      --data '{
+        "routine_name": "Mi Rutina Full Body Inicial",
+        "duration_seconds": 3600,
+        "total_volume": 4200.0,
+        "steps": 812,
+        "data_json": [
+          {
+            "name": "Bench Press",
+            "series": [
+              { "numSerie": 1, "kilos": 60.0, "reps": 8 },
+              { "numSerie": 2, "kilos": 62.5, "reps": 7 },
+              { "numSerie": 3, "kilos": 62.5, "reps": 6 }
+            ]
+          },
+          {
+            "name": "Pull-Up",
+            "series": [
+              { "numSerie": 1, "kilos": 0.0, "reps": 10 },
+              { "numSerie": 2, "kilos": 0.0, "reps": 9 },
+              { "numSerie": 3, "kilos": 0.0, "reps": 8 }
+            ]
+          }
+        ]
+      }'
+    ```
+
+    ```json Response shape
+    {
+      "status": "success",
+      "message": "Entrenamiento guardado en el historial"
+    }
+    ```
+
+    </CodeGroup>
+
+    The session is now saved to `workout_sessions`. The next time you call `GET /routines/7`, each series will reflect the kilos and reps you just submitted.
+  </Step>
+</Steps>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="sitemap" href="/architecture">
+    Understand how the FastAPI backend, Android client, and PostgreSQL schema fit together.
+  </Card>
+  <Card title="API reference" icon="code" href="/api/overview">
+    Full endpoint documentation including avatar updates, username changes, and workout history.
+  </Card>
+</CardGroup>

@@ -1,0 +1,126 @@
+---
+title: "Biometric step counting during workouts"
+description: "See how KERN uses an Android foreground service and the TYPE_STEP_COUNTER sensor to reliably track your steps throughout an active training session."
+---
+
+KERN counts your steps from the moment you start a session until you finish or cancel it. The counting runs inside a foreground service — a long-lived Android process with an active notification — so the operating system cannot terminate it while you are training.
+
+## Why a foreground service is required
+
+Android aggressively kills background processes to conserve battery. A standard background service counting steps would be suspended or destroyed within minutes on most devices. By running as a foreground service with a persistent notification, `StepCounterService` is granted OS-level protection for the full duration of your workout.
+
+<Note>
+  The persistent notification ("Entrenamiento activo — Registrando tus pasos durante la sesión...") is a mandatory requirement of the Android foreground service API, not a design choice. It cannot be dismissed while the service is running.
+</Note>
+
+## The StepCounterService
+
+`StepCounterService` is implemented in `services/StepCounterService.java`. It extends `Service` and implements `SensorEventListener` to receive hardware sensor events.
+
+```java
+public class StepCounterService extends Service implements SensorEventListener {
+
+    public static MutableLiveData<Integer> stepsLiveData = new MutableLiveData<>(0);
+
+    private SensorManager sensorManager;
+    private Sensor stepSensor;
+    private int stepsAtStart = -1; // Offset — resets the counter to 0 at session start
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        createNotificationChannel();
+        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
+
+        if (stepSensor != null) {
+            sensorManager.registerListener(this, stepSensor, SensorManager.SENSOR_DELAY_UI);
+        }
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_STEP_COUNTER) {
+            int totalStepsSinceReboot = (int) event.values[0];
+
+            if (stepsAtStart == -1) {
+                SharedPreferences authPrefs = getSharedPreferences("prefs", MODE_PRIVATE);
+                int userId = authPrefs.getInt("userId", -1);
+                String userKey = "initial_steps_user_" + userId;
+
+                SharedPreferences workoutPrefs = getSharedPreferences("workout_prefs", MODE_PRIVATE);
+                stepsAtStart = workoutPrefs.getInt(userKey, -1);
+
+                if (stepsAtStart == -1) {
+                    stepsAtStart = totalStepsSinceReboot;
+                    workoutPrefs.edit().putInt(userKey, stepsAtStart).apply();
+                }
+            }
+
+            int sessionSteps = Math.max(0, totalStepsSinceReboot - stepsAtStart);
+            stepsLiveData.postValue(sessionSteps);
+        }
+    }
+}
+```
+
+## The offset approach
+
+The `TYPE_STEP_COUNTER` sensor reports the total number of steps taken since the last device reboot — it never resets to zero on its own. KERN uses an offset to isolate only the steps taken during your current session.
+
+<Steps>
+  <Step title="Capture the baseline">
+    When the first sensor event arrives for a new session (`stepsAtStart == -1`), KERN reads the current sensor value and stores it in `SharedPreferences` under a user-specific key (`initial_steps_user_{userId}`).
+  </Step>
+
+  <Step title="Calculate session steps">
+    Every subsequent event subtracts the stored baseline from the current total:
+
+    ```java
+    int sessionSteps = Math.max(0, totalStepsSinceReboot - stepsAtStart);
+    stepsLiveData.postValue(sessionSteps);
+    ```
+
+    `Math.max(0, ...)` prevents negative values if the device reboots mid-session.
+  </Step>
+
+  <Step title="Persist across app restarts">
+    Because the baseline is stored in `SharedPreferences` rather than memory, it survives accidental app closures. If you return to the session screen after dismissing the app, the offset is read back from storage and counting continues correctly from where it left off.
+  </Step>
+
+  <Step title="Reset on service destruction">
+    When the service is destroyed (`onDestroy`), the sensor listener is unregistered and `stepsLiveData` is reset to `0`. The `SharedPreferences` offset key persists — on the next session start, the code reads the stored offset. If a fresh session is started, the offset is overwritten with the current sensor value, establishing a new baseline for that session.
+  </Step>
+</Steps>
+
+## Live data flow to the UI
+
+`stepsLiveData` is a static `MutableLiveData<Integer>` that `WorkoutActiveFragment` observes directly:
+
+```java
+StepCounterService.stepsLiveData.observe(getViewLifecycleOwner(), steps -> {
+    tvStepCount.setText(String.valueOf(steps));
+    routineViewModel.setSteps(steps);
+});
+```
+
+The step count displayed in the workout header updates in real time without any polling.
+
+## Steps in the finished session
+
+When you finish a workout, the current step count is read from `RoutineViewModel` and included in the `POST /workouts/finish` request body as the `steps` field. It is then stored in the `WorkoutSession.steps` column and aggregated into your lifetime total, accessible via `GET /users/stats`.
+
+## Required Android permissions
+
+<CardGroup cols={2}>
+  <Card title="ACTIVITY_RECOGNITION" icon="shield-check">
+    Required on Android 10 (API 29) and above to access the step counter sensor. The app requests this permission at runtime when you open the active workout screen. Step counting is skipped if the permission is denied.
+  </Card>
+  <Card title="FOREGROUND_SERVICE_HEALTH" icon="heart-pulse">
+    Required on Android 10 (API 29) and above to declare the foreground service type as `health`. Declared in `AndroidManifest.xml` and used when calling `startForeground()`.
+  </Card>
+</CardGroup>
+
+<Warning>
+  If you deny the `ACTIVITY_RECOGNITION` permission, the step counter will not start and your session will record `0` steps. Volume and duration tracking are unaffected.
+</Warning>

@@ -1,0 +1,59 @@
+---
+title: 'Setting up your fitness profile with KERN questionnaire'
+description: 'Complete the one-time KERN fitness questionnaire to choose your routine type and automatically generate a personalised workout plan with exercises and sets.'
+---
+
+After registering, KERN guides you through a short questionnaire before you see the main dashboard. This is the step where KERN "thinks" for you — your answers determine which exercises are selected, how many sets are created, and how your entire training plan is structured.
+
+You only complete this questionnaire once. It cannot be repeated after submission.
+
+## What the questionnaire asks
+
+<Steps>
+  <Step title="Choose your training environment">
+    Select where you train. Currently KERN supports **Gym** (Gimnasio) as the primary training environment, which unlocks the full exercise catalogue.
+  </Step>
+  <Step title="Select your routine type">
+    Choose one of the three available training structures:
+
+    <CardGroup cols={3}>
+      <Card title="Full Body" icon="dumbbell">
+        Trains all major muscle groups in every session. Best if you go to the gym 2–3 times per week.
+      </Card>
+      <Card title="PPL (Push Pull Leg)" icon="repeat">
+        Splits your training into Push, Pull, and Leg days. Designed for 4–6 sessions per week.
+      </Card>
+      <Card title="Torso-Pierna" icon="person-running">
+        Alternates between upper body and lower body days. Works well across 4 weekly sessions.
+      </Card>
+    </CardGroup>
+  </Step>
+  <Step title="Confirm and generate your routine">
+    Tap **Confirmar** to submit your answers. KERN generates your routine automatically and shows you the confirmation message: **"Hemos generado tu rutina X"**. You are then redirected to the main dashboard.
+  </Step>
+</Steps>
+
+<Tip>
+  Not sure which routine to pick? Use **Full Body** if you train 2–3 times per week, **PPL** if you can commit to 4–6 days, or **Torso-Pierna** if 4 days per week fits your schedule.
+</Tip>
+
+## How KERN builds your routine
+
+When you submit the questionnaire, KERN's algorithm:
+
+1. Reads your chosen routine type and looks up its configuration (target muscles and movement patterns)
+2. Searches the gym exercise catalogue for exercises that match each muscle group and movement pattern
+3. Selects one exercise per slot — if no perfect match exists, it falls back to any exercise for that muscle group
+4. Creates your routine with **3 sets per exercise**, each defaulting to **0 kg × 10 reps**
+
+You fill in your actual weights during your first workout session. The zeroed values are placeholders — KERN uses your real lifts from that point forward to track progression.
+
+<Note>
+  The questionnaire can only be completed once. If you want to change your routine type later, you can create a new routine manually from the app.
+</Note>
+
+## Next step
+
+<Card title="Explore your training dashboard" icon="chart-line" href="/guide/dashboard">
+  Learn how to read your stats, volume chart, and training calendar on the KERN home screen.
+</Card>

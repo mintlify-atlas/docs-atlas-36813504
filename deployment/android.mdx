@@ -1,0 +1,118 @@
+---
+title: "Building and running the KERN Android app"
+description: "How to set up the KERN Android project in Android Studio, configure the API base URL, sync Gradle dependencies, and run on a device or emulator."
+---
+
+The KERN Android app is a native Java application built with Android Studio. It uses MVVM architecture with Retrofit for networking and LiveData for reactive UI updates. This page covers everything you need to get the project building and running.
+
+## Requirements
+
+- Android Studio Hedgehog or later
+- Android SDK API 24 or higher (minSdk is 24, compileSdk is 36)
+- A physical device or emulator running Android 7.0+
+- A running instance of the KERN API (see [Deploy the KERN API on Vercel](/deployment/backend))
+
+<Note>
+The step counter feature uses the `TYPE_STEP_COUNTER` hardware sensor. **This sensor is not available on emulators.** You need a physical Android device to test step counting during a workout.
+</Note>
+
+## Key dependencies
+
+The following libraries are declared in `app/build.gradle.kts`:
+
+| Library | Version | Purpose |
+|---|---|---|
+| Retrofit 2 | 2.9.0 | HTTP client for API requests |
+| converter-gson | 2.9.0 | Gson serialization for Retrofit |
+| OkHttp | 4.12.0 | Underlying HTTP engine for Retrofit |
+| Glide | 4.16.0 | Async image loading and caching |
+| MPAndroidChart | v3.1.0 | Volume and progress charts |
+| Cloudinary Android | 2.2.0 | Profile avatar uploads |
+| Navigation Fragment | 2.7.7 | Fragment navigation between screens |
+| Navigation UI | 2.7.7 | Navigation component UI helpers |
+| Lifecycle ViewModel | 2.7.0 | MVVM ViewModel support |
+| Lifecycle LiveData | 2.7.0 | Reactive data observation |
+| Material CalendarView | 2.0.1 | Training calendar on dashboard |
+
+## Project structure
+
+```
+app/src/main/java/es/iesagora/proyectointermodular/
+├── ui/
+│   ├── adapter/       # RecyclerView adapters (e.g. ActiveExerciseAdapter)
+│   └── login/         # Login and registration screens
+├── viewmodel/         # ViewModels — business logic for each screen
+├── data/
+│   ├── repository/    # Repository layer (single source of truth)
+│   └── remote/        # Retrofit API interface definitions
+└── services/          # Background services (StepCounterService)
+```
+
+## Configuring the API base URL
+
+The API base URL is set in the Retrofit builder, typically inside a constants file or the `ApiClient` class in `data/remote/`. Update it to point to your deployed KERN API before building:
+
+```java
+private static final String BASE_URL = "https://your-kern-api.vercel.app/";
+```
+
+## Configuring Cloudinary
+
+Cloudinary credentials are loaded from `local.properties` at build time via `BuildConfig` fields. Create or edit `local.properties` in the project root (this file is excluded from version control):
+
+```properties local.properties
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_UPLOAD_PRESET=your_upload_preset
+```
+
+These values are injected into the app as `BuildConfig.CLOUDINARY_CLOUD_NAME`, `BuildConfig.CLOUDINARY_API_KEY`, and `BuildConfig.CLOUDINARY_UPLOAD_PRESET`.
+
+## Required Android permissions
+
+The following permissions must be declared in `AndroidManifest.xml`:
+
+| Permission | Reason |
+|---|---|
+| `INTERNET` | API calls via Retrofit |
+| `ACTIVITY_RECOGNITION` | Access to the step counter sensor |
+| `FOREGROUND_SERVICE` | Keeps `StepCounterService` alive during a workout |
+
+The `StepCounterService` must also be declared as a foreground service in `AndroidManifest.xml`:
+
+```xml AndroidManifest.xml
+<service
+    android:name=".services.StepCounterService"
+    android:foregroundServiceType="health"
+    android:exported="false" />
+```
+
+## Building and running
+
+<Steps>
+  <Step title="Open the project in Android Studio">
+    Open Android Studio and choose **File → Open**, then navigate to the `ProyectoIntermodular` directory. Android Studio will detect the Gradle build files automatically.
+  </Step>
+
+  <Step title="Add local.properties">
+    Create `local.properties` in the project root and add your Cloudinary credentials as shown above. Without this file, the build will succeed but avatar uploads will fail at runtime.
+  </Step>
+
+  <Step title="Sync Gradle">
+    Click **File → Sync Project with Gradle Files** or wait for Android Studio to prompt you. All dependencies listed in `build.gradle.kts` will be downloaded from Maven Central and JitPack.
+  </Step>
+
+  <Step title="Run on a device or emulator">
+    Connect a physical device via USB with USB debugging enabled, or start an emulator from the AVD Manager. Select your target device and click **Run** (or press `Shift+F10`).
+
+    For step counter testing, use a physical device running API 24 or higher.
+  </Step>
+</Steps>
+
+## Step counter behaviour
+
+The `StepCounterService` runs as an Android foreground service with a persistent notification. This prevents Android from killing the process during a long workout. Steps are counted using the `TYPE_STEP_COUNTER` sensor, which measures steps taken strictly while the service is active — not a cumulative total from the device boot.
+
+<Warning>
+The `TYPE_STEP_COUNTER` sensor is a hardware sensor not emulated by the Android Emulator. Running the app on an emulator will result in zero steps being counted.
+</Warning>

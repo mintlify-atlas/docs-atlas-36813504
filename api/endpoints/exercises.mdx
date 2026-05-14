@@ -1,0 +1,197 @@
+---
+title: "Exercise catalog endpoints: gym and home"
+description: "GET /exercises/gym, /exercises/home, and /exercises/{id} — public KERN endpoints returning exercises with muscles, movement patterns, and instructions."
+---
+
+The exercise catalog endpoints are **public** — no authentication token is required. The API loads all exercises from JSON files (`exercises_gym_id.json` and `exercises_home_id.json`) into memory when the Vercel serverless function starts, so these endpoints respond quickly without any database queries.
+
+---
+
+## GET /exercises/gym
+
+Returns the complete list of gym-based exercises. These are the exercises used to populate routines created via the onboarding quiz and the routine editor in the Android app.
+
+**Auth required:** No
+
+### Response — 200
+
+Returns an array of `Exercise` objects. See the [Exercise model](#exercise-object) below for the full field reference.
+
+### Example
+
+<CodeGroup>
+
+```bash curl
+curl --request GET \
+  --url https://kern-api.vercel.app/exercises/gym
+```
+
+```json Response
+[
+  {
+    "id": 1,
+    "name": "Press de Banca",
+    "primary_muscle": "Pecho",
+    "movement_pattern": "Empuje horizontal",
+    "equipment": "Barra",
+    "instructions": "Túmbate en el banco con los pies apoyados en el suelo...",
+    "pro_tips": [
+      "Mantén los omóplatos retraídos y deprimidos",
+      "El agarre debe ser ligeramente más ancho que los hombros"
+    ],
+    "common_mistakes": [
+      "Rebotar la barra en el pecho",
+      "Levantar los pies del suelo"
+    ],
+    "video_url": null
+  }
+]
+```
+
+</CodeGroup>
+
+---
+
+## GET /exercises/home
+
+Returns the complete list of home-based exercises that require no gym equipment or only minimal equipment. Used for home workout routines.
+
+**Auth required:** No
+
+### Response — 200
+
+Returns an array of `Exercise` objects. Same shape as the gym response.
+
+### Example
+
+<CodeGroup>
+
+```bash curl
+curl --request GET \
+  --url https://kern-api.vercel.app/exercises/home
+```
+
+```json Response
+[
+  {
+    "id": 201,
+    "name": "Flexiones",
+    "primary_muscle": "Pecho",
+    "movement_pattern": "Empuje horizontal",
+    "equipment": "Peso corporal",
+    "instructions": "Colócate en posición de plancha con las manos a la anchura de los hombros...",
+    "pro_tips": [
+      "Mantén el cuerpo recto de cabeza a talones",
+      "Baja el pecho hasta casi tocar el suelo"
+    ],
+    "common_mistakes": [
+      "Dejar caer las caderas",
+      "No bajar lo suficiente"
+    ],
+    "video_url": null
+  }
+]
+```
+
+</CodeGroup>
+
+---
+
+## GET /exercises/{exercise_id}
+
+Searches both the gym and home exercise lists by ID and returns the matching exercise. The combined list is searched so this endpoint works regardless of which catalog the exercise belongs to.
+
+**Auth required:** No
+
+### Path parameters
+
+<ParamField path="exercise_id" type="integer" required>
+  The numeric ID of the exercise to retrieve.
+</ParamField>
+
+### Response — 200
+
+Returns a single `Exercise` object.
+
+### Errors
+
+| Status | `detail` | Cause |
+|---|---|---|
+| `404` | `"Ejercicio no encontrado"` | No exercise with this ID exists in either catalog |
+
+### Example
+
+<CodeGroup>
+
+```bash curl
+curl --request GET \
+  --url https://kern-api.vercel.app/exercises/1
+```
+
+```json Response
+{
+  "id": 1,
+  "name": "Press de Banca",
+  "primary_muscle": "Pecho",
+  "movement_pattern": "Empuje horizontal",
+  "equipment": "Barra",
+  "instructions": "Túmbate en el banco con los pies apoyados en el suelo...",
+  "pro_tips": [
+    "Mantén los omóplatos retraídos y deprimidos",
+    "El agarre debe ser ligeramente más ancho que los hombros"
+  ],
+  "common_mistakes": [
+    "Rebotar la barra en el pecho",
+    "Levantar los pies del suelo"
+  ],
+  "video_url": null
+}
+```
+
+</CodeGroup>
+
+---
+
+## Exercise object
+
+All three endpoints share the same `Exercise` response shape, defined as a Pydantic model in `app.py`.
+
+<ResponseField name="id" type="integer" required>
+  Unique numeric ID of the exercise within its JSON file.
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Exercise name. This is the canonical identifier used when storing exercises in routines — `exercise_name` in the `routine_exercises` table must match this value exactly for instructions and tips to be retrieved correctly.
+</ResponseField>
+
+<ResponseField name="primary_muscle" type="string" required>
+  Primary muscle group targeted by the exercise (e.g., `"Pecho"`, `"Espalda"`, `"Cuádriceps"`).
+</ResponseField>
+
+<ResponseField name="movement_pattern" type="string" required>
+  Biomechanical movement category (e.g., `"Empuje horizontal"`, `"Tracción vertical"`, `"Sentadilla"`, `"Bisagra de cadera"`). Used by the auto-routine generator to select exercises matching the user's training plan.
+</ResponseField>
+
+<ResponseField name="equipment" type="string" required>
+  Equipment required (e.g., `"Barra"`, `"Mancuernas"`, `"Peso corporal"`).
+</ResponseField>
+
+<ResponseField name="instructions" type="string" required>
+  Full step-by-step execution instructions shown in the Android workout view.
+</ResponseField>
+
+<ResponseField name="pro_tips" type="string[]" required>
+  Array of expert coaching cues for better technique.
+</ResponseField>
+
+<ResponseField name="common_mistakes" type="string[]" required>
+  Array of frequent errors and how to avoid them.
+</ResponseField>
+
+<ResponseField name="video_url" type="string">
+  Optional URL to a demonstration video. `null` if no video is available.
+</ResponseField>
+
+<Note>
+  Exercises are loaded from JSON at startup for performance — there is no per-request database query. The `primary_muscle` and `movement_pattern` fields drive the automatic routine generation logic in `POST /users/complete-quiz`.
+</Note>

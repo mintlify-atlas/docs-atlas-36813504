@@ -1,0 +1,106 @@
+---
+title: "Visualizing training progress in KERN"
+description: "Explore the dashboard stats, training volume chart, and historical progression data that KERN surfaces to help you measure and improve your performance."
+---
+
+KERN's analytics dashboard gives you a live view of your cumulative training activity — total sessions completed, steps taken across all workouts, days you trained, and a line chart of how your lifting volume evolves over time. All of this is derived from the `WorkoutSession` records created each time you finish a session.
+
+## Dashboard statistics
+
+The home dashboard reads from `GET /users/stats`, which aggregates data across every session you have ever completed.
+
+```http
+GET /users/stats
+Authorization: Bearer <token>
+```
+
+**Response:**
+
+```json
+{
+  "total_workouts": 24,
+  "total_steps": 18430,
+  "training_days": [
+    "2026-04-01",
+    "2026-04-03",
+    "2026-04-05"
+  ]
+}
+```
+
+<CardGroup cols={3}>
+  <Card title="Total workouts" icon="dumbbell">
+    Count of all `WorkoutSession` rows for the authenticated user. Increments by 1 each time you complete and save a session.
+  </Card>
+  <Card title="Total steps" icon="shoe-prints">
+    Sum of the `steps` field across all sessions. Represents cumulative steps recorded by the foreground step counter service.
+  </Card>
+  <Card title="Training days" icon="calendar">
+    List of unique calendar dates (`YYYY-MM-DD`) on which at least one session was saved. Used to visualize training frequency.
+  </Card>
+</CardGroup>
+
+## Training volume chart
+
+The dashboard renders a line chart of your total volume per session using the [MPAndroidChart](https://github.com/PhilJay/MPAndroidChart) library (v3.1.0). Each data point on the chart corresponds to the `total_volume` field of one `WorkoutSession`.
+
+**What is volume?**
+
+Volume is the sum of `kilos × reps` across every completed series in a session. It is calculated on the Android client in real time during the workout and submitted with the session payload.
+
+```
+total_volume = Σ (kilos × reps)  for all completed series
+```
+
+A rising volume trend over time indicates progressive overload — you are doing more total work per session than before.
+
+<Tip>
+  Volume increases when you add weight, add reps, or add sets. You do not need to lift heavier to improve — increasing reps with the same weight also raises volume.
+</Tip>
+
+## Historical progression per exercise
+
+Beyond the dashboard, KERN shows you what you lifted last time for every individual exercise when you open a routine. This data comes from `GET /routines/{routine_id}`.
+
+The API finds the most recent `WorkoutSession` matching the routine name and extracts per-exercise, per-series history from `data_json`. The matching result is embedded in each series object:
+
+| Field | Description |
+|---|---|
+| `anterior` | Human-readable string shown in the UI, e.g. `"60kg x 10"`. |
+| `prev_kilos` | Numeric weight from the previous session. Pre-fills the input. |
+| `prev_reps` | Numeric rep count from the previous session. Pre-fills the input. |
+
+### Series matching logic
+
+<AccordionGroup>
+  <Accordion title="Primary match: by numSerie">
+    The API builds a lookup map from the last session's series, keyed by `numSerie`. For each series in the current routine, it looks up the same `numSerie`. This is the preferred path because series numbers are stable across routine edits.
+  </Accordion>
+
+  <Accordion title="Fallback match: by array index">
+    If no `numSerie` match is found — for example, sessions recorded before `numSerie` was introduced — the API falls back to positional matching: series at index `i` in the routine is matched to series at index `i` in the session snapshot.
+  </Accordion>
+</AccordionGroup>
+
+## The data_json snapshot
+
+Every `WorkoutSession` stores a `data_json` column: a complete JSON snapshot of all exercises and completed series from that session. This snapshot is the source for future progression hints.
+
+```json
+[
+  {
+    "name": "Press de banca",
+    "series": [
+      { "numSerie": 1, "kilos": 60, "reps": 10 },
+      { "numSerie": 2, "kilos": 62.5, "reps": 8 },
+      { "numSerie": 3, "kilos": 60, "reps": 9 }
+    ]
+  }
+]
+```
+
+Storing the full snapshot rather than individual series rows means the historical record is immutable. Editing a routine later does not corrupt past session data, and the API can always reconstruct an accurate picture of what was done in any given session.
+
+<Note>
+  Session data is write-once. There is no endpoint to edit or delete a past `WorkoutSession`. If you accidentally finish a session early, the partial data will still be stored and used for progression hints.
+</Note>

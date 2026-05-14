@@ -1,0 +1,76 @@
+---
+title: "KERN REST API — base URL, formats, and endpoint groups"
+description: "KERN REST API v1.0.0 overview — JSON over HTTPS, JWT Bearer auth, Vercel-hosted, with endpoint groups for auth, users, routines, exercises, and workouts."
+---
+
+The KERN API is a REST interface that powers the KERN Android fitness app. All requests and responses use JSON. The API is built with FastAPI v1.0.0 and deployed as a Vercel serverless function, so there is no persistent server process — each invocation is stateless.
+
+## Base URL
+
+```
+https://kern-api.vercel.app
+```
+
+Every path in this reference is relative to that base URL. The root endpoint (`GET /`) returns a health-check JSON confirming the version and the location of the interactive docs.
+
+## Interactive docs
+
+FastAPI auto-generates a Swagger UI playground at:
+
+```
+https://kern-api.vercel.app/docs
+```
+
+You can use it to explore and test every endpoint without writing any code.
+
+## Request and response format
+
+- All request bodies must be sent as `Content-Type: application/json`.
+- All successful responses return `Content-Type: application/json`.
+- Dates are returned in ISO 8601 format (`YYYY-MM-DDTHH:MM:SS+00:00`).
+- Boolean values use JSON `true`/`false`.
+
+## Authentication
+
+Protected endpoints require a JWT Bearer token in the `Authorization` header:
+
+```
+Authorization: Bearer <accessToken>
+```
+
+Tokens are obtained from `POST /register` or `POST /login` and expire after **30 minutes**. See [Authentication](/api/authentication) for full details.
+
+## API version
+
+**1.0.0** — defined in the FastAPI application constructor. No versioning prefix is used in the URL paths.
+
+## Endpoint groups
+
+| Group | Endpoints | Auth required |
+|---|---|---|
+| Auth | `POST /register`, `POST /login` | No |
+| Users | `GET /users/me`, `PUT /users/avatar`, `PUT /users/update_name`, `GET /users/stats`, `GET /users/my-routines`, `GET /users/my-history`, `POST /users/complete-quiz` | Yes |
+| Routines | `GET /routines/{id}`, `POST /routines/create`, `PUT /routines/{id}`, `DELETE /routines/{id}` | Yes |
+| Exercises | `GET /exercises/gym`, `GET /exercises/home`, `GET /exercises/{id}` | No |
+| Workouts | `POST /workouts/finish` | Yes |
+
+<CardGroup cols={2}>
+  <Card title="Auth endpoints" icon="key" href="/api/endpoints/auth">
+    Register a new account or log in to receive a JWT token.
+  </Card>
+  <Card title="User endpoints" icon="user" href="/api/endpoints/users">
+    Read and update profile data, stats, routines, and history.
+  </Card>
+  <Card title="Routine endpoints" icon="list" href="/api/endpoints/routines">
+    Create, retrieve, update, and delete workout routines.
+  </Card>
+  <Card title="Exercise endpoints" icon="dumbbell" href="/api/endpoints/exercises">
+    Browse the gym and home exercise catalogs.
+  </Card>
+  <Card title="Workout endpoints" icon="flag-checkered" href="/api/endpoints/workouts">
+    Save completed training sessions to the history log.
+  </Card>
+  <Card title="Data models" icon="database" href="/api/models">
+    Full reference for all Pydantic and SQLAlchemy models.
+  </Card>
+</CardGroup>

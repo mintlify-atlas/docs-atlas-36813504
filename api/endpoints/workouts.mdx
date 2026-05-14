@@ -1,0 +1,142 @@
+---
+title: "POST /workouts/finish — save completed session"
+description: "POST /workouts/finish — saves a completed session with duration, volume, steps, and a data_json exercise snapshot that powers future progression hints."
+---
+
+`POST /workouts/finish` is the single endpoint in the workouts group. It persists a completed training session to the `workout_sessions` table so that the user's history and progression data remain available across devices and sessions.
+
+**Auth required:** Yes
+
+---
+
+## How it fits into the training flow
+
+When a user finishes a workout in the Android app, the `WorkoutActiveFragment` calls this endpoint with a full snapshot of what was performed. The API stores this snapshot in the `data_json` column as raw JSON.
+
+Later, when `GET /routines/{routine_id}` is called, the API finds the most recent `WorkoutSession` whose `routine_name` matches the routine and uses `data_json` to populate the `anterior`, `prev_kilos`, and `prev_reps` fields — giving the user a clear view of their previous performance for each set.
+
+---
+
+## POST /workouts/finish
+
+### Request body
+
+<ParamField body="routine_name" type="string" required>
+  The display name of the routine that was performed. Must match the `name` field in the `routines` table exactly (case-insensitive, whitespace-trimmed) so that `GET /routines/{id}` can correlate sessions with routines for progression display.
+</ParamField>
+
+<ParamField body="duration_seconds" type="integer" required>
+  Total elapsed time of the workout session in seconds, as measured by the Android timer.
+</ParamField>
+
+<ParamField body="total_volume" type="number" required>
+  Total training volume in kg, calculated as the sum of `kilos × reps` for every set completed during the session.
+</ParamField>
+
+<ParamField body="steps" type="integer" default="0">
+  Step count recorded by the Android `StepCounterService` during the session. Defaults to `0` if the step counter was unavailable or the user denied the permission.
+</ParamField>
+
+<ParamField body="data_json" type="object[]" required>
+  Full snapshot of every exercise and set performed. This array is stored verbatim and later read back by the routine detail endpoint to provide historical progression data.
+  <Expandable title="data_json item properties">
+    <ParamField body="name" type="string" required>
+      Exercise name. Must match the exercise catalog name so that routine detail lookups work correctly.
+    </ParamField>
+    <ParamField body="series" type="object[]" required>
+      Array of completed sets.
+      <Expandable title="serie properties">
+        <ParamField body="numSerie" type="integer" required>
+          Set number, starting at 1.
+        </ParamField>
+        <ParamField body="kilos" type="number" required>
+          Actual weight used in kilograms.
+        </ParamField>
+        <ParamField body="reps" type="integer" required>
+          Actual repetitions completed.
+        </ParamField>
+      </Expandable>
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Response — 200
+
+<ResponseField name="status" type="string" required>
+  Always `"success"` when the session is saved successfully.
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  `"Entrenamiento guardado en el historial"`
+</ResponseField>
+
+### Errors
+
+| Status | `detail` | Cause |
+|---|---|---|
+| `401` | `"No se pudo validar el token de acceso"` | Missing or expired Bearer token |
+| `500` | Internal server error message | Database write failure — the transaction is rolled back |
+
+### Example
+
+<CodeGroup>
+
+```bash curl
+curl --request POST \
+  --url https://kern-api.vercel.app/workouts/finish \
+  --header "Authorization: Bearer <accessToken>" \
+  --header "Content-Type: application/json" \
+  --data '{
+    "routine_name": "Día A — Empuje",
+    "duration_seconds": 3720,
+    "total_volume": 6450.0,
+    "steps": 1240,
+    "data_json": [
+      {
+        "name": "Press de Banca",
+        "series": [
+          {"numSerie": 1, "kilos": 60.0, "reps": 10},
+          {"numSerie": 2, "kilos": 62.5, "reps": 8},
+          {"numSerie": 3, "kilos": 65.0, "reps": 6}
+        ]
+      },
+      {
+        "name": "Press Militar",
+        "series": [
+          {"numSerie": 1, "kilos": 40.0, "reps": 12},
+          {"numSerie": 2, "kilos": 42.5, "reps": 10}
+        ]
+      }
+    ]
+  }'
+```
+
+```json Response
+{
+  "status": "success",
+  "message": "Entrenamiento guardado en el historial"
+}
+```
+
+</CodeGroup>
+
+---
+
+## Progression data flow
+
+The diagram below shows how a saved session feeds back into the routine detail view.
+
+```
+POST /workouts/finish
+  └─ Stores data_json in workout_sessions table
+       │
+       └─ GET /routines/{id}
+            ├─ Finds latest WorkoutSession where routine_name matches
+            └─ For each exercise in the routine:
+                 ├─ Looks up matching exercise in data_json by name
+                 └─ Populates anterior, prev_kilos, prev_reps per set
+```
+
+<Tip>
+  Always use the exact same `routine_name` string that appears in the `routines` table. The API uses a case-insensitive `ILIKE` comparison with whitespace trimming, but name mismatches (e.g., extra spaces or different wording) will break the progression link and result in `"--"` shown for all sets.
+</Tip>

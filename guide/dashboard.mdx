@@ -1,0 +1,60 @@
+---
+title: 'Reading your KERN training dashboard and stats'
+description: 'Understand the KERN dashboard stats — total workouts, steps, training calendar, and the MPAndroidChart volume graph that tracks your lifting progress over time.'
+---
+
+The dashboard is the first screen you see after logging in. It gives you a complete picture of your training history — how many sessions you have completed, how many steps you have accumulated, which days you trained, and how your lifting volume has changed over time.
+
+All statistics on the dashboard update automatically each time you finish a workout by tapping **Finalizar**.
+
+## Stats overview
+
+<CardGroup cols={3}>
+  <Card title="Total workouts" icon="trophy">
+    The total number of workout sessions you have completed and saved in KERN.
+  </Card>
+  <Card title="Total steps" icon="shoe-prints">
+    The cumulative step count recorded by your phone's sensor across all sessions.
+  </Card>
+  <Card title="Training days" icon="calendar">
+    A calendar view of every day you completed at least one workout session.
+  </Card>
+</CardGroup>
+
+## The volume chart
+
+The volume chart is a line graph that plots your **total volume** per session over time. Each point on the line represents one completed workout.
+
+**Total volume** is calculated as:
+
+```
+total volume = sum of (weight × reps) for every completed set in the session
+```
+
+For example, if you complete 3 sets of bench press at 60 kg × 10 reps each, those sets contribute 1,800 kg to that session's volume. Add up every exercise in the session and you get the total.
+
+<Note>
+  The chart is powered by MPAndroidChart. If you have no completed sessions yet, the chart will be empty until you finish your first workout.
+</Note>
+
+### Reading the chart
+
+| What you see | What it means |
+| --- | --- |
+| A rising trend | You are progressively overloading — lifting more total volume over time |
+| A flat line | Volume is consistent; consider increasing weight or reps |
+| A dip | Normal — can reflect a deload, fewer exercises, or lower weights on a given day |
+
+## Starting today's workout
+
+Tap the **Rendimiento** button on the dashboard to open your routine and begin your active workout session.
+
+<Tip>
+  Check the volume chart before each session to see how last week compared to the week before. A consistent upward trend is the clearest sign your training is working.
+</Tip>
+
+## Next step
+
+<Card title="Log sets during an active workout" icon="check-square" href="/guide/active-workout">
+  Learn how to enter weights and reps, use last-session suggestions, manage rest timers, and finish a session.
+</Card>

@@ -1,0 +1,63 @@
+---
+title: 'Managing your KERN profile, avatar, and settings'
+description: 'Learn how to update your username, upload a new profile photo to Cloudinary, and sign out securely from your KERN account on Android.'
+---
+
+Your KERN profile stores your account information and lets you personalise your identity within the app. You can access it from the bottom navigation bar or the app menu at any time.
+
+## What your profile shows
+
+- Your **username** and **email address**
+- Your **profile photo** (avatar)
+- Account statistics linked to your training history
+
+## Updating your username
+
+<Steps>
+  <Step title="Open your profile">
+    Tap the profile icon in the bottom navigation bar to open your profile screen.
+  </Step>
+  <Step title="Tap your username to edit it">
+    Tap the username field to make it editable. Type your new username.
+  </Step>
+  <Step title="Save the change">
+    Tap **Guardar** (Save) to confirm. KERN updates your username and automatically issues a new JWT session token so your session remains valid.
+  </Step>
+</Steps>
+
+<Note>
+  Your username must be unique across all KERN users. If the name you want is already taken, you will see an error and your username will not change.
+</Note>
+
+<Warning>
+  Changing your username causes KERN to issue a new JWT token (the username is embedded in the token's `sub` claim). If you are using the KERN API directly, retrieve the new token from the `PUT /users/update_name` response and use it going forward. Your old token remains technically valid until its 30-minute expiry, but using it may cause inconsistencies since it encodes the old username.
+</Warning>
+
+## Updating your profile photo
+
+<Steps>
+  <Step title="Tap your current profile photo">
+    On the profile screen, tap your avatar image to open the photo picker.
+  </Step>
+  <Step title="Select a photo from your gallery">
+    Choose an image from your device's photo gallery.
+  </Step>
+  <Step title="Wait for the upload to complete">
+    KERN uploads the image directly to Cloudinary. Once the upload succeeds, Cloudinary returns a public URL for your photo (in the format `https://res.cloudinary.com/...`).
+  </Step>
+  <Step title="Your avatar updates automatically">
+    The new URL is saved to your KERN profile. Your avatar updates on screen immediately and is loaded via Glide wherever your photo appears in the app.
+  </Step>
+</Steps>
+
+<Tip>
+  Your photo is hosted on Cloudinary's CDN, which means it loads quickly on any network. You do not need to store a copy locally on your device.
+</Tip>
+
+## Signing out
+
+Tap the **Cerrar sesión** (Sign out) button on your profile screen to end your session. This clears the local JWT token from your device. You will need to log in again with your email and password to access KERN.
+
+<Note>
+  Signing out only removes the token from your device. Your account, routines, and workout history remain saved in KERN and will be there when you log back in.
+</Note>
